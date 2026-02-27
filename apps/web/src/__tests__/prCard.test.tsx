@@ -5,7 +5,7 @@ import { PRCard, PRCardData } from "@/components/pr-card"
 const mockPR: PRCardData = {
   number: 42,
   title: "feat: add auth middleware",
-  repo: "assert-review",
+  repo: "codelens",
   owner: "testuser",
   author: "alice",
   authorAvatar: "https://github.com/alice.png",
@@ -24,7 +24,7 @@ describe("PRCard", () => {
 
   it("renders repo name", () => {
     render(<PRCard pr={mockPR} />)
-    expect(screen.getByText("testuser/assert-review")).toBeTruthy()
+    expect(screen.getByText("testuser/codelens")).toBeTruthy()
   })
 
   it("renders additions and deletions", () => {

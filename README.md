@@ -1,14 +1,14 @@
-# Assert Review
+# CodeLens
 
-> AI-powered code review interface — ML ↔ Product portfolio project for Assert Labs.
+> AI-powered code review interface — ML ↔ Product portfolio project.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/ritunjaym/assert-review/ci.yml?branch=main)](https://github.com/ritunjaym/assert-review)
+[![Build](https://img.shields.io/github/actions/workflow/status/ritunjaym/codelens/ci.yml?branch=main)](https://github.com/ritunjaym/codelens)
 
 ## Demo
 
 Sign in with GitHub → browse open PRs → click any PR → ML-ranked diff viewer with semantic groups.
 
-**Live**: https://assert-review.vercel.app *(coming after Phase 16 deploy)*
+**Live**: https://codelens.vercel.app *(coming after Phase 16 deploy)*
 
 ## Architecture
 
@@ -64,8 +64,8 @@ GitHub ──── OAuth ───► Next.js 14 (Vercel)
 ### Setup
 
 ```bash
-git clone https://github.com/ritunjaym/assert-review
-cd assert-review
+git clone https://github.com/ritunjaym/codelens
+cd codelens
 cp .env.example .env
 # Fill in GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, NEXTAUTH_SECRET
 
@@ -110,7 +110,7 @@ For model training (requires GPU), use the Colab notebooks:
 ## Project Structure
 
 ```
-assert-review/
+codelens/
 ├── apps/
 │   ├── web/                    # Next.js 14 frontend
 │   │   ├── src/app/            # App Router pages

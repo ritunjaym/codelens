@@ -1,4 +1,4 @@
 {
-  "name": "assert-review",
+  "name": "codelens",
   "main": "src/server.ts"
 }

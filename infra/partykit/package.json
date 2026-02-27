@@ -1,5 +1,5 @@
 {
-  "name": "@assert-review/partykit",
+  "name": "@codelens/partykit",
   "version": "0.1.0",
   "private": true,
   "main": "src/server.ts",

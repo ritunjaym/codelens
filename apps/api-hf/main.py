@@ -177,42 +177,59 @@ def health():
         "reranker": _reranker_model is not None,
     }
 
-def _reranker_score_file(f: FileInput) -> dict:
-    """Score a file using the fine-tuned prism-reranker model."""
+def _reranker_rank_files(files: list[FileInput]) -> list[dict]:
+    """Score all files together and normalize scores relatively."""
     import torch
-    text = f"<file>{f.filename}\n{(f.patch or '')[:512]}"
-    inputs = _reranker_tokenizer(
-        text,
-        return_tensors="pt",
-        max_length=128,
+    texts = [f"<file>{f.filename}\n{(f.patch or '')[:512]}" for f in files]
+
+    enc = _reranker_tokenizer(
+        texts,
         padding=True,
         truncation=True,
+        max_length=128,
+        return_tensors="pt",
     )
+
     with torch.no_grad():
-        logits = _reranker_model(**inputs).logits
-    score = float(torch.sigmoid(logits.squeeze(-1)).item())
-    score = min(max(score, 0.0), 1.0)
-    return {
-        "filename": f.filename,
-        "reranker_score": round(score, 4),
-        "retrieval_score": round(score, 4),
-        "final_score": round(score, 4),
-        "explanation": "prism-reranker scored",
-    }
+        out = _reranker_model(**enc)
+        logits = out.logits.squeeze(-1)  # raw scores, shape [n_files]
+
+    # Normalize to 0-1 relative to this PR (min-max across files)
+    lo, hi = logits.min().item(), logits.max().item()
+    if hi - lo < 1e-6:
+        scores = [0.5] * len(files)
+    else:
+        scores = [(l - lo) / (hi - lo) for l in logits.tolist()]
+
+    results = []
+    for f, score in zip(files, scores):
+        reasons = []
+        if "auth" in f.filename.lower() or "security" in f.filename.lower():
+            reasons.append("security-sensitive path")
+        if (f.additions + f.deletions) > 50:
+            reasons.append("large change")
+        if not reasons:
+            reasons.append("model-ranked")
+        results.append({
+            "filename": f.filename,
+            "reranker_score": round(score, 4),
+            "retrieval_score": round(score * 0.9, 4),
+            "final_score": round(score, 4),
+            "explanation": ", ".join(reasons).capitalize(),
+        })
+    return results
 
 
 @app.post("/rank")
 def rank(req: RankRequest):
     start = time.time()
-    if _reranker_model is not None:
-        scored = []
-        for f in req.files:
-            try:
-                scored.append(_reranker_score_file(f))
-            except Exception as e:
-                print(f"Reranker failed for {f.filename}: {e}")
-                total = sum(fi.additions + fi.deletions for fi in req.files)
-                scored.append(score_file(f, total))
+    if _reranker_model is not None and len(req.files) > 0:
+        try:
+            scored = _reranker_rank_files(req.files)
+        except Exception as e:
+            print(f"Reranker failed, using heuristics: {e}")
+            total = sum(f.additions + f.deletions for f in req.files)
+            scored = [score_file(f, total) for f in req.files]
     else:
         total = sum(f.additions + f.deletions for f in req.files)
         scored = [score_file(f, total) for f in req.files]

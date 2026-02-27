@@ -8,6 +8,6 @@ test.describe("Authentication", () => {
     })
     await page.goto("/")
     // Page should render (either landing or redirect)
-    await expect(page).toHaveTitle(/Assert Review/)
+    await expect(page).toHaveTitle(/CodeLens/)
   })
 })

@@ -1,4 +1,4 @@
-# Contributing to Assert Review
+# Contributing to CodeLens
 
 ## Local Development
 
@@ -9,8 +9,8 @@
 
 ### Setup
 ```bash
-git clone https://github.com/ritunjaym/assert-review
-cd assert-review
+git clone https://github.com/ritunjaym/codelens
+cd codelens
 cp .env.example .env
 npm install
 pip install fastapi uvicorn python-dotenv pydantic pydantic-settings httpx pytest pytest-asyncio httpx
@@ -19,7 +19,7 @@ pip install fastapi uvicorn python-dotenv pydantic pydantic-settings httpx pytes
 ### Running Tests
 ```bash
 # Python tests
-pytest /Users/ritunjay/Desktop/assert-review/ml/ /Users/ritunjay/Desktop/assert-review/apps/api/tests/ -v
+pytest /Users/ritunjay/Desktop/codelens/ml/ /Users/ritunjay/Desktop/codelens/apps/api/tests/ -v
 
 # Frontend unit tests  
 cd apps/web && npm run test

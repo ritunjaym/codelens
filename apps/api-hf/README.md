@@ -1,5 +1,5 @@
 ---
-title: Assert Review API
+title: CodeLens API
 emoji: 🔍
 colorFrom: blue
 colorTo: purple
@@ -8,9 +8,9 @@ app_port: 7860
 pinned: false
 ---
 
-# Assert Review API
+# CodeLens API
 
-FastAPI ML backend for Assert Review. Provides:
+FastAPI ML backend for CodeLens. Provides:
 - `POST /rank` — rank PR files by review importance
 - `POST /cluster` — semantic grouping of PR changes
 - `POST /retrieve` — retrieve similar historical hunks

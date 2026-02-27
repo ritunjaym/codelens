@@ -1,5 +1,5 @@
 {
-  "name": "assert-review",
+  "name": "codelens",
   "private": true,
   "workspaces": ["apps/*", "packages/*", "infra/*"],
   "scripts": {

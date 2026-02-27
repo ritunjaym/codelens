@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Assert Review are documented here.
+All notable changes to CodeLens are documented here.
 
 ## [1.0.0] — 2026-02-20
 

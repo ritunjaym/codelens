@@ -17,7 +17,7 @@ async function fetchUserPRs(accessToken: string): Promise<PRCardData[]> {
     const allPRs: PRCardData[] = []
 
     await Promise.all(
-      repos.slice(0, 5).map(async (repo) => {
+      repos.slice(0, 5).map(async (repo: { name: string; owner: { login: string } }) => {
         try {
           const { data: prs } = await octokit.pulls.list({
             owner: repo.owner.login,

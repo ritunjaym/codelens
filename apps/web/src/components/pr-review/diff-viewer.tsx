@@ -1,7 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
-import { detectLanguage } from "@/lib/language"
+import { useMemo, useState } from "react"
+import React from "react"
+import { useComments } from "@/hooks/use-comments"
+import { CommentThread } from "@/components/comment-thread"
 
 interface DiffLine {
   type: "add" | "remove" | "context" | "hunk-header"
@@ -14,6 +16,11 @@ interface DiffViewerProps {
   patch: string
   filename: string
   viewMode: "unified" | "split"
+  prId?: string
+  currentUser?: { name: string; image?: string }
+  activeCommentLine?: number | null
+  onCommentClose?: () => void
+  isLoading?: boolean
 }
 
 function parsePatch(patch: string): DiffLine[] {
@@ -24,7 +31,6 @@ function parsePatch(patch: string): DiffLine[] {
 
   for (const line of patch.split("\n")) {
     if (line.startsWith("@@")) {
-      // Parse hunk header
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)/)
       if (match) {
         oldLine = parseInt(match[1], 10)
@@ -50,9 +56,36 @@ function LineNumber({ n }: { n?: number }) {
   )
 }
 
-export function DiffViewer({ patch, filename, viewMode }: DiffViewerProps) {
+export function DiffViewer({ patch, filename, viewMode, prId, currentUser, isLoading }: DiffViewerProps) {
   const lines = useMemo(() => parsePatch(patch), [patch])
-  const language = detectLanguage(filename)
+  const [activeRow, setActiveRow] = useState<number | null>(null)
+  const [failedLines, setFailedLines] = useState<Set<number>>(new Set())
+  const { comments, addComment, resolveComment, deleteComment } = useComments(prId ?? "", filename)
+
+  const handleAddComment = (lineNumber: number, body: string) => {
+    addComment(lineNumber, body, currentUser?.name ?? "anonymous", currentUser?.image ?? "")
+
+    if (prId) {
+      // Best-effort GitHub API comment — fire and forget
+      fetch("/api/github/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filename, line: lineNumber, body }),
+      }).catch(() => {
+        setFailedLines(prev => new Set(prev).add(lineNumber))
+      })
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2 p-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-4 bg-muted animate-pulse rounded" />
+        ))}
+      </div>
+    )
+  }
 
   if (!patch || lines.length === 0) {
     return (
@@ -118,16 +151,45 @@ export function DiffViewer({ patch, filename, viewMode }: DiffViewerProps) {
               line.type === "add" ? "+" :
               line.type === "remove" ? "-" :
               line.type === "hunk-header" ? "@" : " "
+            const lineNum = line.newLineNum ?? line.oldLineNum
+            const canComment = line.type !== "hunk-header" && lineNum !== undefined
+            const lineComments = comments.filter(c => c.line_number === lineNum)
 
             return (
-              <tr key={i} className={rowClass} role="row">
-                <LineNumber n={line.oldLineNum} />
-                <LineNumber n={line.newLineNum} />
-                <td className="w-4 text-center text-muted-foreground/60 select-none">{gutter}</td>
-                <td className="px-3 py-0.5 whitespace-pre overflow-hidden text-ellipsis max-w-0" style={{ width: "100%" }} role="cell">
-                  <span className={textClass}>{line.content}</span>
-                </td>
-              </tr>
+              <React.Fragment key={i}>
+                <tr
+                  className={`${rowClass} ${canComment ? "cursor-pointer hover:brightness-110" : ""}`}
+                  role="row"
+                  onClick={canComment ? () => setActiveRow(activeRow === i ? null : i) : undefined}
+                >
+                  <LineNumber n={line.oldLineNum} />
+                  <LineNumber n={line.newLineNum} />
+                  <td className="w-4 text-center text-muted-foreground/60 select-none">{gutter}</td>
+                  <td className="px-3 py-0.5 whitespace-pre overflow-hidden text-ellipsis max-w-0" style={{ width: "100%" }} role="cell">
+                    <span className={textClass}>{line.content}</span>
+                    {lineComments.length > 0 && (
+                      <span className="ml-2 text-[10px] text-primary/70">💬 {lineComments.length}</span>
+                    )}
+                    {lineNum !== undefined && failedLines.has(lineNum) && (
+                      <span className="ml-2 text-[10px] text-destructive" title="GitHub comment failed">⚠</span>
+                    )}
+                  </td>
+                </tr>
+                {activeRow === i && canComment && lineNum !== undefined && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-2 bg-card">
+                      <CommentThread
+                        lineNumber={lineNum}
+                        comments={comments}
+                        onAddComment={handleAddComment}
+                        onResolve={resolveComment}
+                        onDelete={deleteComment}
+                        currentUser={currentUser}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             )
           })}
         </tbody>

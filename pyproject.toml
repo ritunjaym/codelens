@@ -50,7 +50,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["apps/api/tests", "ml/data/tests", "ml/models/tests", "ml/eval/tests"]
+testpaths = ["ml/eval", "apps/api/tests", "ml/data/tests", "ml/models/tests"]
 
 [tool.ruff]
 line-length = 100

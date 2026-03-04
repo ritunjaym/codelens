@@ -39,5 +39,19 @@ export async function POST(req: NextRequest) {
     // ML API may be down — don't fail the webhook
   }
 
+  // Broadcast to PartyKit room for real-time updates
+  const pkHost = process.env.NEXT_PUBLIC_PARTYKIT_HOST
+  if (pkHost && (event === "pull_request" || event === "pull_request_review")) {
+    const prNumber = body.pull_request?.number ?? body.review?.pull_request?.number
+    const repoName = body.repository?.name ?? ""
+    if (prNumber) {
+      const roomId = `pr-${repoName}-${prNumber}`.replace(/[^a-z0-9-]/gi, "-").toLowerCase()
+      fetch(`https://${pkHost}/parties/main/${roomId}`, {
+        method: "POST",
+        body: JSON.stringify({ type: "github_event", event, action: body.action }),
+      }).catch(() => {})
+    }
+  }
+
   return NextResponse.json({ received: true })
 }

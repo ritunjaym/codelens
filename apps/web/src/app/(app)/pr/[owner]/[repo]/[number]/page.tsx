@@ -17,7 +17,7 @@ async function fetchPRData(accessToken: string, owner: string, repo: string, num
 
   return {
     pr: prResp.data,
-    files: filesResp.data.map(f => ({
+    files: filesResp.data.map((f: { filename: string; additions: number; deletions: number; patch?: string }) => ({
       filename: f.filename,
       additions: f.additions,
       deletions: f.deletions,
@@ -88,6 +88,8 @@ export default async function PRDetailPage({ params }: PageProps) {
         rankingData={rankingData}
         clusterData={clusterData}
         prTitle={prData?.pr.title ?? ""}
+        prId={number}
+        currentUser={session ? { name: session.user.name, image: session.user.avatar_url } : undefined}
       />
     </div>
   )

@@ -24,6 +24,7 @@ interface FileListProps {
   selectedFile: string | null
   onSelectFile: (filename: string) => void
   filterClusterId?: number | null
+  focusedFile?: string | null
 }
 
 function LabelBadge({ label }: { label: string }) {
@@ -39,7 +40,7 @@ function LabelBadge({ label }: { label: string }) {
   )
 }
 
-export function FileList({ files, selectedFile, onSelectFile, filterClusterId }: FileListProps) {
+export function FileList({ files, selectedFile, onSelectFile, filterClusterId, focusedFile }: FileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
@@ -76,7 +77,7 @@ export function FileList({ files, selectedFile, onSelectFile, filterClusterId }:
               style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualItem.start}px)` }}
             >
               <button
-                className={`w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 ${isSelected ? "bg-muted border-l-2 border-primary" : "border-l-2 border-transparent"}`}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 ${isSelected ? "bg-muted border-l-2 border-primary" : "border-l-2 border-transparent"} ${file.filename === focusedFile ? "ring-2 ring-primary ring-offset-1" : ""}`}
                 onClick={() => onSelectFile(file.filename)}
                 tabIndex={0}
                 aria-selected={isSelected}

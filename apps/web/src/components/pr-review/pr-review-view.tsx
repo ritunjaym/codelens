@@ -4,7 +4,8 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { FileList, FileListItem } from "./file-list"
 import { DiffViewer } from "./diff-viewer"
-import { ClusterPanel } from "@/components/cluster-panel"
+import { Timeline } from "./timeline"
+import { ClusterPanel, CLUSTER_BORDER_COLORS } from "@/components/cluster-panel"
 import { RankBadge } from "@/components/rank-badge"
 import { ScoreLabelBadge } from "@/components/score-label-badge"
 import { MLUnavailableBanner } from "@/components/ml-unavailable-banner"
@@ -13,6 +14,7 @@ import { KeyboardShortcutsModal } from "@/components/keyboard-shortcuts-modal"
 import { PresenceBar } from "@/components/presence-bar"
 import { useKeyboardNav } from "@/hooks/useKeyboardNav"
 import { usePRRoom } from "@/hooks/use-pr-room"
+import { useRateLimitExhausted } from "@/components/RateLimitBar"
 
 interface RankedFileData {
   filename: string
@@ -40,14 +42,16 @@ interface PRFile {
 
 interface PRReviewViewProps {
   files: PRFile[]
-  rankingData: { ranked_files: RankedFileData[] } | null
+  rankingData: { ranked_files: RankedFileData[]; processing_ms?: number } | null
   clusterData: { groups: ClusterData[] } | null
   prTitle: string
   prId?: string
+  owner?: string
+  repo?: string
   currentUser?: { name: string; image?: string }
 }
 
-export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, currentUser }: PRReviewViewProps) {
+export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, owner, repo, currentUser }: PRReviewViewProps) {
   const router = useRouter()
   const [selectedFile, setSelectedFile] = useState<string | null>(files[0]?.filename ?? null)
   const [viewMode, setViewMode] = useState<"unified" | "split">("unified")
@@ -56,6 +60,10 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, c
   const [showPalette, setShowPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [commentLineOpen, setCommentLineOpen] = useState<number | null>(null)
+  const [criticalBannerDismissed, setCriticalBannerDismissed] = useState(false)
+  const [activeTab, setActiveTab] = useState<"diff" | "timeline">("diff")
+
+  const rateLimitExhausted = useRateLimitExhausted()
 
   const mlUnavailable = !rankingData && !clusterData
 
@@ -176,6 +184,25 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, c
     return [...fileItems, ...clusterItems, ...actionItems]
   }, [enrichedFiles, clusterData, router])
 
+  // Critical files for banner
+  const criticalFiles = useMemo(
+    () => enrichedFiles.filter(f => f.label === "Critical"),
+    [enrichedFiles]
+  )
+
+  // Cluster color for highlighting
+  const selectedClusterIndex = useMemo(() => {
+    if (selectedCluster == null || !clusterData) return null
+    return clusterData.groups.findIndex(g => g.cluster_id === selectedCluster)
+  }, [selectedCluster, clusterData])
+
+  const clusterHighlightColor = selectedClusterIndex != null && selectedClusterIndex >= 0
+    ? CLUSTER_BORDER_COLORS[selectedClusterIndex % CLUSTER_BORDER_COLORS.length]
+    : null
+
+  // Processing ms from ranking data
+  const processingMs = rankingData?.processing_ms
+
   return (
     <div className="flex h-[calc(100vh-57px)] overflow-hidden">
       {/* Left panel: file list + cluster panel */}
@@ -224,57 +251,118 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, c
             onSelectFile={setSelectedFile}
             filterClusterId={selectedCluster}
             focusedFile={focusedFile}
+            clusterHighlightColor={clusterHighlightColor}
           />
         </div>
+
+        {/* ML latency display */}
+        {processingMs != null && (
+          <div className="px-3 py-1.5 border-t border-border">
+            <span className="text-[10px] text-muted-foreground/60">
+              AI ranked in {processingMs < 50 ? "< 50ms" : `${processingMs}ms`}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Right panel: diff viewer */}
-      <div className="flex-1 overflow-y-auto pb-10">
-        {mlUnavailable && (
-          <div className="px-6 pt-4">
-            <MLUnavailableBanner />
+      {/* Right panel: diff viewer + tabs */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Rate limit warning */}
+        {rateLimitExhausted && (
+          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400 text-center">
+            Rate limited — resets soon. GitHub API calls are paused.
           </div>
         )}
 
-        {selectedFileData ? (
-          <div className="p-4">
-            {/* File header */}
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border">
-              {selectedFileRank?.finalScore != null && (
-                <RankBadge file={{
-                  rank: selectedFileRank.rank,
-                  finalScore: selectedFileRank.finalScore,
-                  rerankerScore: selectedFileRank.rerankerScore,
-                  retrievalScore: selectedFileRank.retrievalScore,
-                  explanation: selectedFileRank.explanation,
-                }} />
-              )}
-              {selectedFileRank?.label != null && (
-                <ScoreLabelBadge label={selectedFileRank.label} />
-              )}
-              <span className="font-mono text-sm font-medium">{selectedFileData.filename}</span>
-              <span className="ml-auto flex items-center gap-2 text-xs">
-                <span className="text-green-500">+{selectedFileData.additions}</span>
-                <span className="text-red-500">-{selectedFileData.deletions}</span>
-              </span>
-            </div>
-
-            <DiffViewer
-              patch={selectedFileData.patch ?? ""}
-              filename={selectedFileData.filename}
-              viewMode={viewMode}
-              prId={prId}
-              currentUser={currentUser}
-              activeCommentLine={commentLineOpen}
-              onCommentClose={() => setCommentLineOpen(null)}
-              commentOpen={commentLineOpen !== null}
-            />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Select a file to view its diff
+        {/* Critical files banner */}
+        {reviewOrder && criticalFiles.length > 0 && !criticalBannerDismissed && (
+          <div className="mx-4 mt-3 flex items-start gap-2 px-3 py-2 rounded bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400">
+            <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <span className="flex-1">
+              AI recommends reviewing these {criticalFiles.length} file(s) first:{" "}
+              <span className="font-mono">{criticalFiles.map(f => f.filename).join(", ")}</span>
+            </span>
+            <button
+              onClick={() => setCriticalBannerDismissed(true)}
+              className="shrink-0 hover:text-blue-200 transition-colors"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
           </div>
         )}
+
+        {/* Tab bar */}
+        <div className="flex items-center gap-0 border-b border-border px-4 pt-2">
+          <button
+            className={`text-xs px-3 py-1.5 border-b-2 transition-colors ${activeTab === "diff" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setActiveTab("diff")}
+          >
+            Diff
+          </button>
+          <button
+            className={`text-xs px-3 py-1.5 border-b-2 transition-colors ${activeTab === "timeline" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setActiveTab("timeline")}
+          >
+            Timeline
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pb-10">
+          {activeTab === "timeline" && owner && repo && prId ? (
+            <Timeline owner={owner} repo={repo} number={prId} />
+          ) : (
+            <>
+              {mlUnavailable && (
+                <div className="px-6 pt-4">
+                  <MLUnavailableBanner />
+                </div>
+              )}
+
+              {selectedFileData ? (
+                <div className="p-4">
+                  {/* File header */}
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border">
+                    {selectedFileRank?.finalScore != null && (
+                      <RankBadge file={{
+                        rank: selectedFileRank.rank,
+                        finalScore: selectedFileRank.finalScore,
+                        rerankerScore: selectedFileRank.rerankerScore,
+                        retrievalScore: selectedFileRank.retrievalScore,
+                        explanation: selectedFileRank.explanation,
+                      }} />
+                    )}
+                    {selectedFileRank?.label != null && (
+                      <ScoreLabelBadge label={selectedFileRank.label} />
+                    )}
+                    <span className="font-mono text-sm font-medium">{selectedFileData.filename}</span>
+                    <span className="ml-auto flex items-center gap-2 text-xs">
+                      <span className="text-green-500">+{selectedFileData.additions}</span>
+                      <span className="text-red-500">-{selectedFileData.deletions}</span>
+                    </span>
+                  </div>
+
+                  <DiffViewer
+                    patch={selectedFileData.patch ?? ""}
+                    filename={selectedFileData.filename}
+                    viewMode={viewMode}
+                    prId={prId}
+                    currentUser={currentUser}
+                    activeCommentLine={commentLineOpen}
+                    onCommentClose={() => setCommentLineOpen(null)}
+                    commentOpen={commentLineOpen !== null}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Select a file to view its diff
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Keyboard shortcut hints bar */}

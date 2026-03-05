@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/session"
 import { Octokit } from "@octokit/rest"
 import { PRCard, PRCardData } from "@/components/pr-card"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 async function fetchUserPRs(accessToken: string): Promise<PRCardData[]> {
   try {
@@ -64,26 +65,28 @@ export default async function DashboardPage() {
   const prs = accessToken ? await fetchUserPRs(accessToken) : []
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Open Pull Requests</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {prs.length} open PRs across your repositories
-        </p>
-      </div>
+    <ErrorBoundary>
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Open Pull Requests</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {prs.length} open PRs across your repositories
+          </p>
+        </div>
 
-      {prs.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg font-medium">No open pull requests</p>
-          <p className="text-sm mt-2">Open a PR on GitHub to start reviewing with ML-powered insights.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
-          {prs.map((pr) => (
-            <PRCard key={`${pr.owner}/${pr.repo}#${pr.number}`} pr={pr} />
-          ))}
-        </div>
-      )}
-    </div>
+        {prs.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-lg font-medium">No open pull requests</p>
+            <p className="text-sm mt-2">Open a PR on GitHub to start reviewing with ML-powered insights.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+            {prs.map((pr) => (
+              <PRCard key={`${pr.owner}/${pr.repo}#${pr.number}`} pr={pr} />
+            ))}
+          </div>
+        )}
+      </div>
+    </ErrorBoundary>
   )
 }

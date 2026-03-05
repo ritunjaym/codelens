@@ -1,9 +1,12 @@
 "use client"
 
-import { useMemo, useState, useEffect, useRef } from "react"
+import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import React from "react"
 import { useComments } from "@/hooks/use-comments"
 import { CommentThread } from "@/components/comment-thread"
+import { useRateLimitExhausted } from "@/components/RateLimitBar"
+
+const MAX_RETRIES = 3
 
 interface DiffLine {
   type: "add" | "remove" | "context" | "hunk-header"
@@ -57,12 +60,19 @@ function LineNumber({ n }: { n?: number }) {
   )
 }
 
+interface FailedComment {
+  retries: number
+  body: string
+  retrying: boolean
+}
+
 export function DiffViewer({ patch, filename, viewMode, prId, currentUser, isLoading, commentOpen }: DiffViewerProps) {
   const lines = useMemo(() => parsePatch(patch), [patch])
   const [activeRow, setActiveRow] = useState<number | null>(null)
-  const [failedLines, setFailedLines] = useState<Set<number>>(new Set())
+  const [failedComments, setFailedComments] = useState<Map<number, FailedComment>>(new Map())
   const { comments, addComment, resolveComment, deleteComment } = useComments(prId ?? "", filename)
   const autoOpenRowRef = useRef<number | null>(null)
+  const rateLimitExhausted = useRateLimitExhausted()
 
   // When commentOpen becomes true (from keyboard 'c' shortcut), open the first commentable row
   useEffect(() => {
@@ -79,20 +89,47 @@ export function DiffViewer({ patch, filename, viewMode, prId, currentUser, isLoa
     }
   }, [commentOpen, lines])
 
-  const handleAddComment = (lineNumber: number, body: string) => {
-    addComment(lineNumber, body, currentUser?.name ?? "anonymous", currentUser?.image ?? "")
+  const postCommentToGitHub = useCallback(async (lineNumber: number, body: string, attempt: number) => {
+    if (attempt > 1) {
+      const delay = Math.pow(2, attempt - 2) * 1000 // 1s, 2s, 4s
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
 
-    if (prId) {
-      // Best-effort GitHub API comment — fire and forget
-      fetch("/api/github/comment", {
+    setFailedComments(prev => {
+      const next = new Map(prev)
+      const existing = next.get(lineNumber)
+      if (existing) next.set(lineNumber, { ...existing, retrying: true })
+      return next
+    })
+
+    try {
+      const res = await fetch("/api/github/comment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: filename, line: lineNumber, body }),
-      }).catch(() => {
-        setFailedLines(prev => new Set(prev).add(lineNumber))
+      })
+      if (!res.ok) throw new Error("API error")
+      setFailedComments(prev => {
+        const next = new Map(prev)
+        next.delete(lineNumber)
+        return next
+      })
+    } catch {
+      setFailedComments(prev => {
+        const next = new Map(prev)
+        next.set(lineNumber, { retries: attempt, body, retrying: false })
+        return next
       })
     }
-  }
+  }, [filename])
+
+  const handleAddComment = useCallback((lineNumber: number, body: string) => {
+    addComment(lineNumber, body, currentUser?.name ?? "anonymous", currentUser?.image ?? "")
+
+    if (prId && !rateLimitExhausted) {
+      postCommentToGitHub(lineNumber, body, 1)
+    }
+  }, [addComment, currentUser, prId, rateLimitExhausted, postCommentToGitHub])
 
   if (isLoading) {
     return (
@@ -187,9 +224,34 @@ export function DiffViewer({ patch, filename, viewMode, prId, currentUser, isLoa
                     {lineComments.length > 0 && (
                       <span className="ml-2 text-[10px] text-primary/70">💬 {lineComments.length}</span>
                     )}
-                    {lineNum !== undefined && failedLines.has(lineNum) && (
-                      <span className="ml-2 text-[10px] text-destructive" title="GitHub comment failed">⚠</span>
-                    )}
+                    {lineNum !== undefined && failedComments.has(lineNum) && (() => {
+                      const failed = failedComments.get(lineNum)!
+                      if (failed.retries >= MAX_RETRIES) {
+                        return (
+                          <span className="ml-2 text-[10px] text-muted-foreground">
+                            Comment saved locally only
+                          </span>
+                        )
+                      }
+                      return (
+                        <span className="ml-2 text-[10px] text-destructive">
+                          {failed.retrying ? "Retrying…" : (
+                            <>
+                              Failed to post ·{" "}
+                              <button
+                                className="underline hover:no-underline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  postCommentToGitHub(lineNum, failed.body, failed.retries + 1)
+                                }}
+                              >
+                                Retry
+                              </button>
+                            </>
+                          )}
+                        </span>
+                      )
+                    })()}
                   </td>
                 </tr>
                 {activeRow === i && canComment && lineNum !== undefined && (

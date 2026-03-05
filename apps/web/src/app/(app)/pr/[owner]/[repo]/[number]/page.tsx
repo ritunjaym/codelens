@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/session"
 import { Octokit } from "@octokit/rest"
 import { PRReviewView } from "@/components/pr-review/pr-review-view"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string; number: string }>
@@ -83,14 +84,18 @@ export default async function PRDetailPage({ params }: PageProps) {
         <h1 className="text-lg font-semibold">{prData?.pr.title ?? `PR #${number}`}</h1>
       </div>
 
-      <PRReviewView
-        files={prData?.files ?? []}
-        rankingData={rankingData}
-        clusterData={clusterData}
-        prTitle={prData?.pr.title ?? ""}
-        prId={number}
-        currentUser={session ? { name: session.user.name, image: session.user.avatar_url } : undefined}
-      />
+      <ErrorBoundary>
+        <PRReviewView
+          files={prData?.files ?? []}
+          rankingData={rankingData}
+          clusterData={clusterData}
+          prTitle={prData?.pr.title ?? ""}
+          prId={number}
+          owner={owner}
+          repo={repo}
+          currentUser={session ? { name: session.user.name, image: session.user.avatar_url } : undefined}
+        />
+      </ErrorBoundary>
     </div>
   )
 }

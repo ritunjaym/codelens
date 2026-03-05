@@ -13,9 +13,14 @@ interface ClusterPanelProps {
   onSelectCluster: (id: number | null) => void
 }
 
-const CLUSTER_COLORS = [
+export const CLUSTER_COLORS = [
   "bg-purple-500", "bg-blue-500", "bg-cyan-500", "bg-teal-500",
   "bg-indigo-500", "bg-violet-500", "bg-fuchsia-500", "bg-pink-500",
+]
+
+export const CLUSTER_BORDER_COLORS = [
+  "border-purple-500", "border-blue-500", "border-cyan-500", "border-teal-500",
+  "border-indigo-500", "border-violet-500", "border-fuchsia-500", "border-pink-500",
 ]
 
 export function ClusterPanel({ clusters, selectedClusterId, onSelectCluster }: ClusterPanelProps) {

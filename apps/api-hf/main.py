@@ -1,4 +1,3 @@
-import logging
 import math
 import os
 import pickle
@@ -8,16 +7,13 @@ from collections import deque
 from typing import Optional
 
 import numpy as np
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 tracemalloc.start()
 
@@ -51,7 +47,7 @@ try:
     _embedder = (_tokenizer, _model)
     logger.info("CodeBERT loaded successfully")
 except Exception as e:
-    logger.warning("CodeBERT not loaded (using heuristics): %s", e)
+    logger.warning("CodeBERT not loaded (using heuristics)", error=str(e))
 
 
 # ── Fine-tuned reranker ───────────────────────────────────────────────────────
@@ -71,7 +67,7 @@ try:
     _reranker_model.eval()
     logger.info("Reranker model loaded successfully")
 except Exception as e:
-    logger.warning("Reranker not loaded (using heuristics): %s", e)
+    logger.warning("Reranker not loaded (using heuristics)", error=str(e))
 
 
 # ── FAISS index ───────────────────────────────────────────────────────────────
@@ -84,13 +80,9 @@ try:
     _faiss_index = faiss.read_index("hunk_index.faiss")
     with open("hunk_index.faiss.meta", "rb") as _f:
         _faiss_metadata = pickle.load(_f)
-    logger.info(
-        "FAISS index loaded: %d vectors, %d metadata entries",
-        _faiss_index.ntotal,
-        len(_faiss_metadata),
-    )
+    logger.info("FAISS index loaded", vectors=_faiss_index.ntotal, metadata_entries=len(_faiss_metadata))
 except Exception as e:
-    logger.warning("FAISS index not loaded: %s", e)
+    logger.warning("FAISS index not loaded", error=str(e))
 
 
 # ── Cluster auto-labeling helpers ─────────────────────────────────────────────
@@ -360,7 +352,7 @@ def metrics():
             "codebert_loaded": _embedder is not None,
         }
     except Exception as e:
-        logger.error("metrics endpoint failed: %s", e)
+        logger.error("metrics endpoint failed", error=str(e))
         return JSONResponse(status_code=500, content={"error": str(e), "code": "METRICS_ERROR"})
     finally:
         elapsed = (time.time() - start) * 1000
@@ -377,7 +369,7 @@ def rank(req: RankRequest):
             try:
                 scored = _reranker_rank_files(req.files)
             except Exception as e:
-                logger.warning("Reranker failed, using heuristics: %s", e)
+                logger.warning("Reranker failed, using heuristics", error=str(e))
                 total = sum(f.additions + f.deletions for f in req.files)
                 scored = [score_file(f, total) for f in req.files]
         else:
@@ -392,7 +384,7 @@ def rank(req: RankRequest):
             "processing_ms": int((time.time() - start) * 1000),
         }
     except Exception as e:
-        logger.error("rank endpoint failed: %s", e)
+        logger.error("rank endpoint failed", error=str(e))
         return JSONResponse(status_code=500, content={"error": str(e), "code": "RANK_ERROR"})
     finally:
         elapsed = (time.time() - start) * 1000
@@ -447,7 +439,7 @@ def cluster(req: ClusterRequest):
                 )
                 labels = clusterer.fit_predict(embeddings).tolist()
             except Exception as e:
-                logger.warning("Embedding clustering failed, using directory fallback: %s", e)
+                logger.warning("Embedding clustering failed, using directory fallback", error=str(e))
                 embeddings = None
                 labels = None
 
@@ -509,7 +501,7 @@ def cluster(req: ClusterRequest):
 
         return {"pr_id": req.pr_id, "groups": groups}
     except Exception as e:
-        logger.error("cluster endpoint failed: %s", e)
+        logger.error("cluster endpoint failed", error=str(e))
         return JSONResponse(status_code=500, content={"error": str(e), "code": "CLUSTER_ERROR"})
     finally:
         elapsed = (time.time() - start) * 1000
@@ -546,7 +538,7 @@ def retrieve(req: RetrieveRequest):
 
         return {"results": results}
     except Exception as e:
-        logger.error("retrieve endpoint failed: %s", e)
+        logger.error("retrieve endpoint failed", error=str(e))
         return JSONResponse(status_code=500, content={"error": str(e), "code": "RETRIEVE_ERROR"})
     finally:
         elapsed = (time.time() - start) * 1000
@@ -593,7 +585,7 @@ def rank_hunks(req: HunkRankRequest):
                 else:
                     scores = [(l - lo) / (hi - lo) for l in logits.tolist()]
             except Exception as e:
-                logger.warning("Reranker hunk scoring failed: %s", e)
+                logger.warning("Reranker hunk scoring failed", error=str(e))
                 scores = [0.5] * len(hunks)
         else:
             # Heuristic: score based on hunk size and security keywords
@@ -627,7 +619,7 @@ def rank_hunks(req: HunkRankRequest):
             "hunks": scored_hunks,
         }
     except Exception as e:
-        logger.error("rank_hunks endpoint failed: %s", e)
+        logger.error("rank_hunks endpoint failed", error=str(e))
         return JSONResponse(status_code=500, content={"error": str(e), "code": "RANK_HUNKS_ERROR"})
     finally:
         elapsed = (time.time() - start) * 1000

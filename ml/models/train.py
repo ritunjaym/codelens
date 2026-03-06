@@ -9,16 +9,17 @@ Usage:
 from __future__ import annotations
 
 import json
-import logging
 import os
 import random
 from pathlib import Path
+
+import structlog
 
 import hydra
 import numpy as np
 from omegaconf import DictConfig, OmegaConf
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def set_seeds(seed: int) -> None:
@@ -57,7 +58,7 @@ def load_pairs(path: str) -> tuple[list[str], list[int]]:
     pairs_path = p.parent / "reranker_pairs.jsonl"
 
     if not pairs_path.exists():
-        logger.info("reranker_pairs.jsonl not found — building from pr_files.jsonl ...")
+        logger.info("reranker_pairs.jsonl not found — building from pr_files.jsonl")
         from ml.data.build_reranker_pairs import build_pairs
         build_pairs(input_path=p, output_path=pairs_path)
 
@@ -71,8 +72,7 @@ def load_pairs(path: str) -> tuple[list[str], list[int]]:
             texts.append(rec["text"])
             labels.append(rec["label"])
 
-    logger.info("Loaded %d training pairs (%d positive, %d negative)",
-                len(texts), sum(labels), len(labels) - sum(labels))
+    logger.info("loaded training pairs", total=len(texts), positive=sum(labels), negative=len(labels) - sum(labels))
     return texts, labels
 
 
@@ -146,7 +146,7 @@ def train_teacher(cfg: DictConfig, texts: list[str], labels: list[int], wandb_ru
     from peft import get_peft_model, LoraConfig, TaskType
     from sklearn.metrics import roc_auc_score
 
-    logger.info("=== Training Teacher (%s + LoRA) ===", cfg.model.teacher_base)
+    logger.info("training teacher", model=cfg.model.teacher_base)
 
     tokenizer = AutoTokenizer.from_pretrained(
         cfg.model.teacher_base, cache_dir="/tmp/hf-cache"
@@ -243,10 +243,7 @@ def train_teacher(cfg: DictConfig, texts: list[str], labels: list[int], wandb_ru
         except Exception:
             auc = 0.0
 
-        logger.info(
-            "Teacher epoch %d/%d — val_loss=%.4f, AUC=%.4f",
-            epoch + 1, cfg.training.teacher_epochs, avg_val_loss, auc,
-        )
+        logger.info("teacher epoch", epoch=epoch + 1, total=cfg.training.teacher_epochs, val_loss=round(avg_val_loss, 4), auc=round(auc, 4))
         if wandb_run:
             wandb_run.log({
                 "teacher/val_loss": avg_val_loss,
@@ -261,10 +258,7 @@ def train_teacher(cfg: DictConfig, texts: list[str], labels: list[int], wandb_ru
         else:
             patience_counter += 1
             if patience_counter >= 2:
-                logger.info(
-                    "Teacher early stopping at epoch %d (patience exceeded)",
-                    epoch + 1,
-                )
+                logger.info("teacher early stopping", epoch=epoch + 1)
                 break
 
     return model, tokenizer
@@ -305,7 +299,7 @@ def train_student(
     )
     from sklearn.metrics import roc_auc_score
 
-    logger.info("=== Training Student (%s, distillation) ===", cfg.model.student_base)
+    logger.info("training student", model=cfg.model.student_base)
 
     student_tokenizer = AutoTokenizer.from_pretrained(
         cfg.model.student_base, cache_dir="/tmp/hf-cache"
@@ -419,10 +413,7 @@ def train_student(
         except Exception:
             auc = 0.0
 
-        logger.info(
-            "Student epoch %d/%d — val_loss=%.4f, AUC=%.4f",
-            epoch + 1, cfg.training.student_epochs, avg_val_loss, auc,
-        )
+        logger.info("student epoch", epoch=epoch + 1, total=cfg.training.student_epochs, val_loss=round(avg_val_loss, 4), auc=round(auc, 4))
         if wandb_run:
             wandb_run.log({
                 "student/val_loss": avg_val_loss,
@@ -437,10 +428,7 @@ def train_student(
         else:
             patience_counter += 1
             if patience_counter >= 2:
-                logger.info(
-                    "Student early stopping at epoch %d (patience exceeded)",
-                    epoch + 1,
-                )
+                logger.info("student early stopping", epoch=epoch + 1)
                 break
 
     return student_model, student_tokenizer
@@ -462,16 +450,12 @@ def save_checkpoint(model, tokenizer, output_dir: Path) -> None:
         pass
     model.save_pretrained(str(output_dir))
     tokenizer.save_pretrained(str(output_dir))
-    logger.info("Checkpoint saved to %s", output_dir)
+    logger.info("checkpoint saved", path=str(output_dir))
 
 
 @hydra.main(config_path="../config", config_name="train", version_base=None)
 def main(cfg: DictConfig) -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    logger.info("Config:\n%s", OmegaConf.to_yaml(cfg))
+    logger.info("config loaded", config=OmegaConf.to_yaml(cfg))
 
     set_seeds(cfg.training.seed)
 
@@ -483,9 +467,9 @@ def main(cfg: DictConfig) -> None:
             project="codelens-reranker",
             config=OmegaConf.to_container(cfg, resolve=True),
         )
-        logger.info("W&B run: %s", wandb_run.url)
+        logger.info("wandb run started", url=wandb_run.url)
     except Exception as e:
-        logger.warning("W&B not available (%s) — training without logging", e)
+        logger.warning("wandb not available, training without logging", error=str(e))
 
     # Load data
     texts, labels = load_pairs(cfg.data.train_path)
@@ -502,9 +486,9 @@ def main(cfg: DictConfig) -> None:
     try:
         teacher_model.save_pretrained(str(lora_adapter_dir))
         teacher_tokenizer.save_pretrained(str(lora_adapter_dir))
-        logger.info("LoRA adapter saved to %s", lora_adapter_dir)
+        logger.info("lora adapter saved", path=str(lora_adapter_dir))
     except Exception as e:
-        logger.warning("Could not save LoRA adapter separately: %s", e)
+        logger.warning("could not save lora adapter separately", error=str(e))
 
     save_checkpoint(teacher_model, teacher_tokenizer, teacher_dir)
 
@@ -520,7 +504,7 @@ def main(cfg: DictConfig) -> None:
     if wandb_run:
         wandb_run.finish()
 
-    logger.info("Training complete. Student checkpoint at %s", student_dir)
+    logger.info("training complete", student_checkpoint=str(student_dir))
 
 
 if __name__ == "__main__":

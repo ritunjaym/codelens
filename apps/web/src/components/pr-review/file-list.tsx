@@ -58,8 +58,8 @@ export function FileList({ files, selectedFile, onSelectFile, filterClusterId, f
 
   if (filteredFiles.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        No files
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
+        {filterClusterId != null ? "All changes appear related — no distinct files in this group." : "No file changes in this PR."}
       </div>
     )
   }
@@ -82,7 +82,7 @@ export function FileList({ files, selectedFile, onSelectFile, filterClusterId, f
               style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualItem.start}px)` }}
             >
               <button
-                className={`w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 ${isSelected ? "bg-muted border-l-2 border-primary" : isClusterHighlighted ? `border-l-4 ${clusterHighlightColor}` : "border-l-2 border-transparent"} ${file.filename === focusedFile ? "ring-2 ring-primary ring-offset-1" : ""}`}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors duration-150 flex items-center gap-2 min-h-[44px] ${isSelected ? "bg-muted border-l-2 border-primary" : isClusterHighlighted ? `border-l-4 ${clusterHighlightColor}` : "border-l-2 border-transparent"} ${file.filename === focusedFile ? "ring-2 ring-primary ring-offset-1" : ""}`}
                 onClick={() => onSelectFile(file.filename)}
                 tabIndex={0}
                 aria-selected={isSelected}

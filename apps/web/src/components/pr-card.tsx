@@ -1,4 +1,8 @@
+"use client"
+
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useRef } from "react"
 
 export interface PRCardData {
   number: number
@@ -15,10 +19,23 @@ export interface PRCardData {
 }
 
 export function PRCard({ pr }: { pr: PRCardData }) {
+  const router = useRouter()
+  const prefetchedRef = useRef(new Set<string>())
   const relativeTime = getRelativeTime(pr.createdAt)
-  
+  const prUrl = `/pr/${pr.owner}/${pr.repo}/${pr.number}`
+
+  const handleMouseEnter = () => {
+    if (!prefetchedRef.current.has(prUrl)) {
+      router.prefetch(prUrl)
+      prefetchedRef.current.add(prUrl)
+    }
+  }
+
   return (
-    <div className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors bg-card group">
+    <div
+      className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors duration-150 bg-card group"
+      onMouseEnter={handleMouseEnter}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

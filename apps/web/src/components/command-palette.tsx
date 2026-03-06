@@ -35,8 +35,8 @@ export function CommandPalette({ open, onClose, items }: CommandPaletteProps) {
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-background border border-border rounded-xl shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-slide-in-top">
         <Command>
           <div className="flex items-center border-b border-border px-3">
             <span className="text-muted-foreground mr-2 text-sm">⌘</span>
@@ -52,7 +52,7 @@ export function CommandPalette({ open, onClose, items }: CommandPaletteProps) {
 
           <Command.List className="max-h-72 overflow-y-auto p-2">
             <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
-              No results found.
+              {search ? `No files match "${search}". Try a shorter search.` : "No results found."}
             </Command.Empty>
 
             {groups.map(group => {

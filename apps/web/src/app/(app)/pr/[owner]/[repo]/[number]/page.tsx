@@ -8,8 +8,12 @@ interface PageProps {
   params: Promise<{ owner: string; repo: string; number: string }>
 }
 
+// Custom fetch that adds Next.js Data Cache revalidation for Octokit GET requests
+const cachedFetch = (url: string, init?: RequestInit) =>
+  fetch(url, { ...init, next: { revalidate: 60 } } as RequestInit)
+
 async function fetchPRData(accessToken: string, owner: string, repo: string, number: number) {
-  const octokit = new Octokit({ auth: accessToken })
+  const octokit = new Octokit({ auth: accessToken, request: { fetch: cachedFetch } })
 
   const [prResp, filesResp] = await Promise.all([
     octokit.pulls.get({ owner, repo, pull_number: number }),

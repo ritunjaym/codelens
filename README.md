@@ -156,6 +156,31 @@ Ablation over LoRA rank r ∈ {4, 8, 16, 32} with fixed α = 2r (CodeBERT base, 
 | `?` | Show all keyboard shortcuts |
 | `g d` | Go to dashboard |
 
+## Performance
+
+### Bundle Analysis
+
+Bundle treemap generated via `@next/bundle-analyzer` (webpack mode):
+
+```bash
+cd apps/web && ANALYZE=true npm run build -- --webpack
+# Reports: .next/analyze/nodejs.html, .next/analyze/edge.html
+```
+
+[View bundle treemap](docs/bundle-report.html)
+
+Key observations from the treemap:
+- Largest chunks: `cmdk` (command palette), `@tanstack/react-virtual` (file list virtualizer), `react-syntax-highlighter` (diff viewer)
+- Both `cmdk` and `@tanstack/react-virtual` are interaction-deferred — loaded only when the PR review view mounts, not on the dashboard
+- `react-syntax-highlighter` ships all language grammars; a future optimization is dynamic grammar loading per detected language
+
+### Runtime Performance
+
+- **File list**: windowed with `@tanstack/react-virtual` — renders only visible rows even for PRs with 1000+ files
+- **SWR caching**: rate-limit bar polls every 30 s with stale-while-revalidate; GitHub API responses cached with `next: { revalidate: 60 }`
+- **Prefetch on hover**: PR cards call `router.prefetch()` on mouse enter, so navigation to PR review is near-instant
+- **Mobile**: file tree rendered as a bottom sheet (CSS `translate-y` transition) — off-screen on mobile, no layout shift
+
 ## Setup
 
 ```bash

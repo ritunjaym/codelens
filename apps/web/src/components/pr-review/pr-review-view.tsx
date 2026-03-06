@@ -62,6 +62,7 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, o
   const [commentLineOpen, setCommentLineOpen] = useState<number | null>(null)
   const [criticalBannerDismissed, setCriticalBannerDismissed] = useState(false)
   const [activeTab, setActiveTab] = useState<"diff" | "timeline">("diff")
+  const [fileTreeOpen, setFileTreeOpen] = useState(false)
 
   const rateLimitExhausted = useRateLimitExhausted()
 
@@ -205,8 +206,35 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, o
 
   return (
     <div className="flex h-[calc(100vh-57px)] overflow-hidden">
+      {/* Mobile backdrop */}
+      {fileTreeOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-background/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setFileTreeOpen(false)}
+        />
+      )}
+
       {/* Left panel: file list + cluster panel */}
-      <div className="w-72 border-r border-border flex flex-col shrink-0">
+      <div className={`
+        border-border flex flex-col shrink-0
+        md:static md:w-72 md:border-r md:translate-y-0 md:flex
+        fixed bottom-0 left-0 right-0 z-50 h-[70vh] border-t
+        bg-background
+        transition-transform duration-300 ease-in-out
+        ${fileTreeOpen ? "translate-y-0" : "translate-y-full"}
+      `}>
+        {/* Mobile drag handle / close */}
+        <div className="md:hidden flex items-center justify-between px-4 py-2 border-b border-border">
+          <div className="w-8 h-1 bg-muted-foreground/30 rounded-full mx-auto" />
+          <button
+            className="ml-auto text-muted-foreground hover:text-foreground transition-colors p-1"
+            onClick={() => setFileTreeOpen(false)}
+            aria-label="Close file tree"
+          >
+            ✕
+          </button>
+        </div>
+
         {/* Toolbar */}
         <div className="px-3 py-2 border-b border-border flex items-center gap-2 flex-wrap">
           <button
@@ -266,7 +294,23 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, o
       </div>
 
       {/* Right panel: diff viewer + tabs */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile toolbar: hamburger + current file name */}
+        <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
+          <button
+            className="p-2 rounded hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            onClick={() => setFileTreeOpen(true)}
+            aria-label="Show file tree"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          <span className="text-sm text-muted-foreground truncate font-mono">
+            {selectedFile ?? "Select a file"}
+          </span>
+        </div>
+
         {/* Rate limit warning */}
         {rateLimitExhausted && (
           <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400 text-center">
@@ -276,7 +320,7 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, o
 
         {/* Critical files banner */}
         {reviewOrder && criticalFiles.length > 0 && !criticalBannerDismissed && (
-          <div className="mx-4 mt-3 flex items-start gap-2 px-3 py-2 rounded bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400">
+          <div className="mx-4 mt-3 flex items-start gap-2 px-3 py-2 rounded bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400 animate-slide-in-top">
             <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
@@ -365,8 +409,8 @@ export function PRReviewView({ files, rankingData, clusterData, prTitle, prId, o
         </div>
       </div>
 
-      {/* Keyboard shortcut hints bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/80 backdrop-blur-sm px-4 py-1.5 flex items-center gap-4 text-[10px] text-muted-foreground">
+      {/* Keyboard shortcut hints bar — hidden on mobile */}
+      <div className="hidden md:flex fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/80 backdrop-blur-sm px-4 py-1.5 items-center gap-4 text-[10px] text-muted-foreground">
         <span><kbd className="font-mono bg-muted border border-border rounded px-1">j</kbd> <kbd className="font-mono bg-muted border border-border rounded px-1">k</kbd> navigate</span>
         <span><kbd className="font-mono bg-muted border border-border rounded px-1">c</kbd> comment</span>
         <span><kbd className="font-mono bg-muted border border-border rounded px-1">⌘K</kbd> search</span>

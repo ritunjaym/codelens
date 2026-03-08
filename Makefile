@@ -50,3 +50,15 @@ test:
 lint:
 	cd apps/web && npm run lint
 	ruff check ml/ apps/api-hf/
+
+solid:
+	cd apps/web-solid && npm run dev
+
+build-solid:
+	cd apps/web-solid && npm run build
+
+test-solid:
+	cd apps/web-solid && npm test
+
+deploy-solid:
+	cd apps/web-solid && npx vercel --prod

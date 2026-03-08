@@ -6,7 +6,13 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:solid": "cd apps/web-solid && npm run dev",
+    "dev:api": "cd apps/api-hf && uvicorn main:app --reload --port 8000",
+    "build:solid": "cd apps/web-solid && npm run build",
+    "test:solid": "cd apps/web-solid && npm test",
+    "test:ml": "pytest ml/eval/ -v"
   },
   "packageManager": "npm@11.8.0",
   "devDependencies": {

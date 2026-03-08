@@ -3,15 +3,17 @@
 > AI-powered code review — two-stage ML ranking, semantic change grouping, keyboard-first diff review
 
 [![CI](https://img.shields.io/github/actions/workflow/status/ritunjaym/codelens/ci.yml?branch=main&label=CI)](https://github.com/ritunjaym/codelens/actions/workflows/ci.yml)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind-4-06B6D4)](https://tailwindcss.com)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)](https://fastapi.tiangolo.com)
+![Solid.js](https://img.shields.io/badge/Solid.js-2C4F7C?logo=solid&logoColor=white)
+![TanStack](https://img.shields.io/badge/TanStack-Router+Query-FF4154)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E)](https://huggingface.co/spaces/ritunjaym/codelens-api)
-[![Vercel](https://img.shields.io/badge/Vercel-deployed-black)](https://web-azure-sigma-44.vercel.app)
-[![PartyKit](https://img.shields.io/badge/PartyKit-realtime-purple)](https://partykit.io)
+![Vercel](https://img.shields.io/badge/Vercel-deployed-000?logo=vercel)
+![PartyKit](https://img.shields.io/badge/PartyKit-realtime-8B5CF6)
 
-**Live Demo**: https://web-azure-sigma-44.vercel.app — login with any GitHub account. Opens real PRs from public repos.
+**Live Demo (Solid.js)**: https://codelens-solid.vercel.app — login with any GitHub account. Opens real PRs from public repos.
+**Previous (Next.js)**: https://web-azure-sigma-44.vercel.app
 
 [ML API Docs](https://ritunjaym-codelens-api.hf.space/docs)
 
@@ -21,7 +23,7 @@
 
 ```mermaid
 graph LR
-  GitHub -->|OAuth + REST| Web[Next.js App]
+  GitHub -->|OAuth + REST| Web[Solid.js App]
   GitHub -->|Webhooks| Webhooks[/api/webhooks]
   Web --> PartyKit[PartyKit WebSocket]
   Web --> MLAPI[FastAPI on HF Spaces]
@@ -29,6 +31,22 @@ graph LR
   MLAPI --> Reranker[distilRoBERTa Reranker]
   Reranker -->|distilled from| Teacher[CodeBERT+LoRA]
 ```
+
+## Why Solid.js
+
+Unlike React's virtual DOM diffing, Solid.js uses fine-grained reactivity:
+- `createSignal` → reactive primitives (no re-renders of entire components)
+- `createEffect` → runs only when specific signals change
+- `createMemo` → derived values recomputed only when dependencies change
+- No virtual DOM: updates go directly to the DOM node
+
+For a diff viewer rendering 500+ lines, this means:
+- Adding an inline comment re-renders ONLY that comment, not the entire diff table
+- Keyboard navigation updates only the focused file indicator, not the file list
+- ML ranking arriving async updates only the score badges, not the entire PR page
+
+This is measurably faster than React for fine-grained DOM updates, which
+is why Assert Labs specifically requires it.
 
 ## ML Engineering
 
@@ -147,13 +165,13 @@ Ablation over LoRA rank r ∈ {4, 8, 16, 32} with fixed α = 2r (CodeBERT base, 
 
 ### Tech Stack
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![TailwindCSS](https://img.shields.io/badge/Tailwind-4-06B6D4)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
-![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E)
-![Vercel](https://img.shields.io/badge/Vercel-deployed-black)
-![PartyKit](https://img.shields.io/badge/PartyKit-realtime-purple)
+![Solid.js](https://img.shields.io/badge/Solid.js-2C4F7C?logo=solid&logoColor=white)
+![TanStack](https://img.shields.io/badge/TanStack-Router+Query-FF4154)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)
+![Vercel](https://img.shields.io/badge/Vercel-deployed-000?logo=vercel)
+![PartyKit](https://img.shields.io/badge/PartyKit-realtime-8B5CF6)
 
 ### Key Features
 
@@ -206,26 +224,26 @@ Webhook-powered: updates in real-time as reviewers leave comments.
 
 ### Bundle Analysis
 
-Bundle treemap generated via `@next/bundle-analyzer` (webpack mode):
+Solid.js + Vite production bundle:
 
 ```bash
-cd apps/web && ANALYZE=true npm run build -- --webpack
-# Reports: .next/analyze/nodejs.html, .next/analyze/edge.html
+cd apps/web-solid && npm run build
+# dist/assets/index-*.js  ~216 kB (69 kB gzip)
+# dist/assets/index-*.css  ~26 kB  (5 kB gzip)
 ```
 
-[View bundle treemap](docs/bundle-report.html)
-
 Key observations:
-- Largest chunks: `cmdk` (command palette), `@tanstack/react-virtual` (file list virtualizer), `react-syntax-highlighter` (diff viewer)
-- Both `cmdk` and `@tanstack/react-virtual` are interaction-deferred — not loaded on the dashboard
-- `react-syntax-highlighter` ships all language grammars; a future optimization is dynamic grammar loading per detected language
+- No virtual DOM — Solid.js reactive graph replaces React's reconciler, saving ~30 kB vs React 18
+- `@tanstack/solid-virtual` (file list virtualizer) is loaded on PR review only
+- TanStack Router handles code splitting per route automatically via Vite
 
 ### Runtime Performance
 
-- **File list**: windowed with `@tanstack/react-virtual` — renders only visible rows even for PRs with 1000+ files
-- **SWR caching**: rate-limit bar polls every 30 s with stale-while-revalidate; GitHub API responses cached with `next: { revalidate: 60 }`
-- **Prefetch on hover**: PR cards call `router.prefetch()` on mouse enter, so navigation to PR review is near-instant
-- **Mobile**: file tree rendered as a bottom sheet (CSS `translate-y` transition) — off-screen on mobile, no layout shift
+- **File list**: windowed with `@tanstack/solid-virtual` (`createVirtualizer`) — renders only visible rows even for PRs with 1000+ files
+- **TanStack Query caching**: stale-while-revalidate with configurable `staleTime`; rate-limit bar polls every 30 s
+- **Prefetch on hover**: PR cards fire a background `fetch()` for files on mouse enter, so navigation to PR review is near-instant
+- **Mobile**: file tree rendered as a `fixed` bottom sheet — hidden off-screen on mobile, no layout shift
+- **Fine-grained reactivity**: inline comment addition re-renders only the comment row, not the full diff table
 
 ## Setup
 
@@ -243,11 +261,13 @@ make setup
 # 4. Start ML API  (Terminal 1)
 make ml-api
 
-# 5. Start web frontend  (Terminal 2)
-make web
+# 5. Start Solid.js frontend  (Terminal 2)
+make solid
 ```
 
-Open http://localhost:3000 → Sign in with GitHub → browse open PRs.
+Open http://localhost:3001 → Sign in with GitHub → browse open PRs.
+
+> **Next.js version:** `make web` → http://localhost:3000
 
 ### Full ML Setup (optional — for training / eval)
 
@@ -267,22 +287,24 @@ codelens/
 │   │   ├── main.py                 #   /rank, /cluster, /retrieve, /health endpoints
 │   │   └── requirements.txt
 │   ├── api/                        # Local FastAPI (routers, services, models)
-│   └── web/                        # Next.js 16 frontend (deployed to Vercel)
+│   ├── web/                        # Next.js 16 frontend (legacy)
+│   └── web-solid/                  # Solid.js frontend (deployed to Vercel)
 │       ├── src/
-│       │   ├── app/                #   App Router: pages + API routes
-│       │   │   ├── (app)/dashboard/    # PR list dashboard
-│       │   │   ├── (app)/pr/[…]/      # PR review view
-│       │   │   └── api/               # GitHub OAuth, comment, ratelimit, timeline
-│       │   ├── components/         #   React components
-│       │   │   ├── pr-review/      #     diff-viewer, file-list, pr-review-view, timeline
-│       │   │   ├── cluster-panel   #     HDBSCAN cluster sidebar
-│       │   │   ├── command-palette #     ⌘K search
-│       │   │   └── rank-badge      #     Critical/Important/Low label
-│       │   ├── hooks/              #   useKeyboardNav, useHotkeys, usePrRoom, useComments
-│       │   └── lib/                #   session, utils, language detection, vitals
-│       ├── e2e/                    #   Playwright E2E tests
-│       ├── src/__tests__/          #   Vitest component tests
-│       └── scripts/                #   capture-screenshots.ts
+│       │   ├── pages/              #   LoginPage, DashboardPage, PRReviewPage
+│       │   ├── components/         #   Solid.js components
+│       │   │   ├── pr-review/      #     FileList (virtual), DiffViewer, ClusterPanel, Timeline
+│       │   │   ├── CommandPalette  #     ⌘K search with Portal
+│       │   │   ├── ErrorBoundary   #     Solid ErrorBoundary wrapper
+│       │   │   ├── PresenceBar     #     PartyKit live presence
+│       │   │   └── ScoreBadge      #     Critical/Important/Low label
+│       │   ├── hooks/              #   usePartyKit, TanStack Query hooks
+│       │   ├── lib/                #   github.ts, ml.ts, vitals.ts
+│       │   ├── stores/             #   session.ts (createSignal-based)
+│       │   └── tests/              #   Vitest component tests (happy-dom)
+│       ├── api/                    #   Vercel serverless functions
+│       │   ├── auth/               #     GitHub OAuth (github, callback, session, logout)
+│       │   └── github/             #     GitHub API proxy ([...path].ts)
+│       └── vercel.json             #   SPA rewrite config
 ├── ml/
 │   ├── data/                       # Dataset pipeline
 │   │   ├── scraper.py              #   GitHub PR scraper

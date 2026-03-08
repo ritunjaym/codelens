@@ -1,13 +1,14 @@
 import { createSignal, createEffect, createMemo, Show, onCleanup } from 'solid-js'
 import { useParams, useNavigate } from '@tanstack/solid-router'
-import { createQuery } from '@tanstack/solid-query'
 import { AuthGuard } from '@/components/AuthGuard'
 import { Nav } from '@/components/Nav'
 import { FileList } from '@/components/pr-review/FileList'
 import { DiffViewer } from '@/components/pr-review/DiffViewer'
 import { ClusterPanel } from '@/components/pr-review/ClusterPanel'
+import { Timeline } from '@/components/pr-review/Timeline'
 import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
+import { PresenceBar } from '@/components/PresenceBar'
 import { usePR, usePRFiles } from '@/hooks/queries'
 import { mlApi, type RankedFile, type Cluster } from '@/lib/ml'
 
@@ -38,6 +39,7 @@ export function PRReviewPage() {
   const [showShortcuts, setShowShortcuts] = createSignal(false)
   const [commentOpen, setCommentOpen] = createSignal(false)
   const [bannerDismissed, setBannerDismissed] = createSignal(false)
+  const [activeTab, setActiveTab] = createSignal<'clusters' | 'timeline'>('clusters')
 
   // Run ML ranking when files load
   createEffect(async () => {
@@ -157,6 +159,7 @@ export function PRReviewPage() {
               </p>
             </div>
           </Show>
+          <PresenceBar prId={`${params.owner}/${params.repo}/${params.number}`} />
           <button
             class={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
               aiPriority()
@@ -232,14 +235,48 @@ export function PRReviewPage() {
             />
           </div>
 
-          {/* Right: clusters */}
-          <div class="w-56 border-l border-slate-800 overflow-y-auto shrink-0 hidden lg:block">
-            <ClusterPanel
-              clusters={clusters()}
-              selectedCluster={selectedCluster()}
-              onSelectCluster={setSelectedCluster}
-              isLoading={mlLoading()}
-            />
+          {/* Right: tabbed panel (clusters / timeline) */}
+          <div class="w-56 border-l border-slate-800 flex flex-col min-h-0 shrink-0 hidden lg:flex">
+            {/* Tab buttons */}
+            <div class="flex border-b border-slate-800">
+              <button
+                class={`flex-1 text-xs py-2 transition-colors ${
+                  activeTab() === 'clusters'
+                    ? 'text-white border-b-2 border-blue-500'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+                onClick={() => setActiveTab('clusters')}
+              >
+                Groups
+              </button>
+              <button
+                class={`flex-1 text-xs py-2 transition-colors ${
+                  activeTab() === 'timeline'
+                    ? 'text-white border-b-2 border-blue-500'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+                onClick={() => setActiveTab('timeline')}
+              >
+                Timeline
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+              <Show when={activeTab() === 'clusters'}>
+                <ClusterPanel
+                  clusters={clusters()}
+                  selectedCluster={selectedCluster()}
+                  onSelectCluster={setSelectedCluster}
+                  isLoading={mlLoading()}
+                />
+              </Show>
+              <Show when={activeTab() === 'timeline'}>
+                <Timeline
+                  owner={params.owner}
+                  repo={params.repo}
+                  number={parseInt(params.number)}
+                />
+              </Show>
+            </div>
           </div>
         </div>
 

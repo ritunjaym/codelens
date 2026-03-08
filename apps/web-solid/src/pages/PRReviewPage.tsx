@@ -14,18 +14,20 @@ import { usePR, usePRFiles } from '@/hooks/queries'
 import { mlApi, type RankedFile, type Cluster } from '@/lib/ml'
 
 export function PRReviewPage() {
-  const params = useParams()
+  // useParams returns an Accessor in TanStack Router Solid — destructure once
+  // (route params are stable for component lifetime; remount on navigation)
+  const { owner, repo, number: prNumber } = useParams({ from: '/pr/$owner/$repo/$number' })()
   const navigate = useNavigate()
 
   const pr = usePR(
-    () => params.owner,
-    () => params.repo,
-    () => parseInt(params.number)
+    () => owner,
+    () => repo,
+    () => parseInt(prNumber)
   )
   const files = usePRFiles(
-    () => params.owner,
-    () => params.repo,
-    () => parseInt(params.number)
+    () => owner,
+    () => repo,
+    () => parseInt(prNumber)
   )
 
   const [selectedFile, setSelectedFile] = createSignal<string | null>(null)
@@ -51,12 +53,12 @@ export function PRReviewPage() {
     try {
       const [rankResult, clusterResult] = await Promise.all([
         mlApi.rankFiles(
-          `${params.owner}/${params.repo}/${params.number}`,
-          `${params.owner}/${params.repo}`,
+          `${owner}/${repo}/${prNumber}`,
+          `${owner}/${repo}`,
           fileData.map(f => ({ filename: f.filename, patch: f.patch, additions: f.additions, deletions: f.deletions }))
         ),
         mlApi.clusterFiles(
-          `${params.owner}/${params.repo}/${params.number}`,
+          `${owner}/${repo}/${prNumber}`,
           fileData.map(f => ({ filename: f.filename, patch: f.patch }))
         ),
       ])
@@ -163,11 +165,11 @@ export function PRReviewPage() {
               <div class="flex-1 min-w-0">
                 <h1 class="text-sm font-medium text-white truncate">{pr.data?.title}</h1>
                 <p class="text-xs text-slate-500">
-                  #{pr.data?.number} · {params.owner}/{params.repo}
+                  #{pr.data?.number} · {owner}/{repo}
                 </p>
               </div>
             </Show>
-            <PresenceBar prId={`${params.owner}/${params.repo}/${params.number}`} />
+            <PresenceBar prId={`${owner}/${repo}/${prNumber}`} />
             <button
               class={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                 aiPriority()
@@ -235,9 +237,9 @@ export function PRReviewPage() {
               <DiffViewer
                 file={selectedFileData()}
                 rank={selectedFileRank()}
-                prId={params.number}
-                owner={params.owner}
-                repo={params.repo}
+                prId={prNumber}
+                owner={owner}
+                repo={repo}
                 commentOpen={commentOpen()}
                 onCommentClose={() => setCommentOpen(false)}
               />
@@ -278,9 +280,9 @@ export function PRReviewPage() {
                 </Show>
                 <Show when={activeTab() === 'timeline'}>
                   <Timeline
-                    owner={params.owner}
-                    repo={params.repo}
-                    number={parseInt(params.number)}
+                    owner={owner}
+                    repo={repo}
+                    number={parseInt(prNumber)}
                   />
                 </Show>
               </div>

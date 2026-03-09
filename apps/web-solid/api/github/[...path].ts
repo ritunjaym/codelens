@@ -13,6 +13,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/vnd.github.v3+json',
+      'If-None-Match': '',
+      'If-Modified-Since': '',
       ...(req.body ? { 'Content-Type': 'application/json' } : {}),
     },
     ...(req.body ? { body: JSON.stringify(req.body) } : {}),

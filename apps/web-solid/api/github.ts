@@ -5,9 +5,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!cookie) return res.status(401).json({ error: 'Unauthorized' })
 
   const { accessToken } = JSON.parse(Buffer.from(cookie, 'base64').toString())
-  const rawPath = req.query.path
-  const path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath ?? ''
-  const query = new URL(req.url!, 'http://localhost').search
+  const url = new URL(req.url!, 'http://localhost')
+  const path = url.pathname.replace('/api/github/', '').replace('/api/github', '')
+  const query = url.search
 
   const ghRes = await fetch(`https://api.github.com/${path}${query}`, {
     method: req.method,
@@ -28,9 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const rlr = ghRes.headers.get('x-ratelimit-reset')
   if (rlr) res.setHeader('x-ratelimit-reset', rlr)
 
-  if (ghRes.status === 304 || ghRes.status === 204) {
-    return res.status(ghRes.status).end()
-  }
+  if (ghRes.status === 304 || ghRes.status === 204) return res.status(ghRes.status).end()
   const text = await ghRes.text()
   try {
     res.status(ghRes.status).json(JSON.parse(text))

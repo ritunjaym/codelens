@@ -27,7 +27,7 @@ export function FileList(props: Props) {
   const virtualizer = createVirtualizer({
     get count() { return sortedFiles().length },
     getScrollElement: () => parentRef,
-    estimateSize: () => 40,
+    estimateSize: () => 52,
     overscan: 5,
   })
 
@@ -42,9 +42,12 @@ export function FileList(props: Props) {
           {(virtualRow) => {
             const file = () => sortedFiles()[virtualRow.index]
             const rank = () => rankMap().get(file().filename)
-            const isFocused = () => props.focusedFile === file().filename
             const isSelected = () => props.selectedFile === file().filename
             const clusterColor = () => props.clusterFileMap[file().filename]
+            const shortFilename = () => {
+              const parts = file().filename.split('/')
+              return parts.length > 2 ? `.../${parts.slice(-2).join('/')}` : file().filename
+            }
 
             return (
               <div
@@ -57,26 +60,24 @@ export function FileList(props: Props) {
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <button
-                  class={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors min-h-11
-                    ${isSelected() ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-800'}
-                    ${isFocused() ? 'ring-2 ring-blue-500 ring-inset' : ''}
-                    ${clusterColor() ? 'border-l-4' : ''}
-                  `}
+                <div
+                  class={`px-3 py-2 cursor-pointer border-l-2 transition-all ${
+                    isSelected() ? 'border-[var(--accent)] bg-[var(--bg-elevated)]' : 'border-transparent hover:bg-[var(--bg-elevated)]'
+                  }`}
                   style={clusterColor() ? { 'border-left-color': clusterColor() } : {}}
                   onClick={() => props.onSelectFile(file().filename)}
                 >
-                  <span class="truncate flex-1">{file().filename}</span>
-                  <Show when={rank() && props.aiPriority}>
-                    <ScoreBadge label={rank()!.label} />
-                  </Show>
-                  <Show when={!props.aiPriority}>
-                    <span class="text-slate-600 text-xs">
-                      <span class="text-green-700">+{file().additions}</span>
-                      <span class="text-red-800"> -{file().deletions}</span>
-                    </span>
-                  </Show>
-                </button>
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="mono text-xs text-[var(--text-primary)] truncate">{shortFilename()}</span>
+                    <Show when={rank() && props.aiPriority}>
+                      <ScoreBadge label={rank()!.label} />
+                    </Show>
+                  </div>
+                  <div class="flex gap-2 mt-0.5 mono text-[10px]">
+                    <span class="text-[var(--success)]">+{file().additions}</span>
+                    <span class="text-[var(--critical)]">-{file().deletions}</span>
+                  </div>
+                </div>
               </div>
             )
           }}

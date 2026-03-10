@@ -156,103 +156,109 @@ export function PRReviewPage() {
 
   return (
     <AuthGuard>
-      <Nav />
-      <ErrorBoundary>
-        <div class="flex flex-col h-[calc(100vh-3.5rem)]">
-          {/* PR header */}
-          <div class="border-b border-slate-800 px-4 py-3 bg-slate-900/50 flex items-center gap-3">
+      <div class="h-screen flex flex-col bg-[var(--bg-base)]">
+        <Nav />
+        <ErrorBoundary>
+          {/* PR header bar */}
+          <div class="border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 flex items-center gap-3">
             <Show when={pr.data}>
-              <div class="flex-1 min-w-0">
-                <h1 class="text-sm font-medium text-white truncate">{pr.data?.title}</h1>
-                <p class="text-xs text-slate-500">
-                  #{pr.data?.number} · {owner}/{repo}
-                </p>
-              </div>
+              <span class="mono text-xs text-[var(--text-muted)]">#{pr.data?.number}</span>
+              <span class="text-sm font-semibold text-[var(--text-primary)] truncate flex-1">{pr.data?.title}</span>
+            </Show>
+            <Show when={!pr.data}>
+              <span class="flex-1" />
             </Show>
             <PresenceBar prId={`${owner}/${repo}/${prNumber}`} />
+            <Show when={processingMs() !== null}>
+              <span class="mono text-[10px] text-[var(--accent)] bg-[var(--accent-subtle)] px-2 py-0.5 rounded border border-[var(--accent)]/20">
+                AI {processingMs()! < 50 ? '< 50' : processingMs()}ms
+              </span>
+            </Show>
             <button
-              class={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              class={`text-xs px-3 py-1.5 rounded border transition-colors mono ${
                 aiPriority()
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-300'
-                  : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                  ? 'bg-[var(--accent-subtle)] border-[var(--accent)]/30 text-[var(--accent)]'
+                  : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border)]'
               }`}
               onClick={() => setAiPriority(p => !p)}
             >
-              {aiPriority() ? '✦ AI Priority' : 'Default Order'}
+              {aiPriority() ? 'AI Priority' : 'Default Order'}
             </button>
           </div>
 
           {/* Critical files banner */}
           <Show when={aiPriority() && criticalFiles().length > 0 && !bannerDismissed()}>
-            <div class="bg-blue-950/50 border-b border-blue-800 px-4 py-2 flex items-center gap-2">
-              <span class="text-blue-300 text-xs">
-                ✦ AI recommends reviewing these {criticalFiles().length} file(s) first:{' '}
-                <span class="font-medium">{criticalFiles().slice(0, 3).join(', ')}</span>
+            <div class="border-b border-[var(--critical)]/20 bg-[var(--critical-subtle)] px-4 py-2 flex items-center gap-2">
+              <span class="text-[var(--critical)] text-xs">
+                {criticalFiles().length} critical file(s) need review:{' '}
+                <span class="font-medium mono">{criticalFiles().slice(0, 3).join(', ')}</span>
                 {criticalFiles().length > 3 && ` +${criticalFiles().length - 3} more`}
               </span>
               <button
-                class="ml-auto text-blue-500 hover:text-blue-300 text-xs"
+                class="ml-auto text-[var(--critical)]/60 hover:text-[var(--critical)] text-xs transition-colors"
                 onClick={() => setBannerDismissed(true)}
               >✕</button>
             </div>
           </Show>
 
           {/* Main 3-column layout */}
-          <div class="flex flex-1 min-h-0">
-            {/* Left: file list — hidden on mobile */}
-            <div class="w-72 border-r border-slate-800 flex-col min-h-0 shrink-0 hidden md:flex">
-              <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
-                <span class="text-xs text-slate-400">
-                  {files.data?.length ?? 0} files
-                </span>
-                <Show when={processingMs() !== null}>
-                  <span class="text-xs text-slate-600">
-                    AI ranked in {processingMs()! < 50 ? '< 50' : processingMs()}ms
-                  </span>
+          <div class="flex-1 flex overflow-hidden">
+            {/* Left: file list */}
+            <div class="w-72 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] flex-col overflow-hidden hidden md:flex">
+              <div class="px-3 py-2 border-b border-[var(--border)] flex items-center justify-between">
+                <span class="text-xs text-[var(--text-secondary)] font-medium">Files</span>
+                <span class="mono text-xs text-[var(--text-muted)]">{files.data?.length ?? 0}</span>
+              </div>
+              <div class="flex-1 overflow-y-auto">
+                <Show when={files.isLoading}>
+                  <div class="p-3 space-y-1">
+                    {[...Array(8)].map(() => (
+                      <div class="h-9 bg-[var(--bg-elevated)] rounded animate-pulse" />
+                    ))}
+                  </div>
+                </Show>
+                <Show when={files.data}>
+                  <FileList
+                    files={files.data!}
+                    rankedFiles={rankedFiles()}
+                    selectedFile={selectedFile()}
+                    focusedFile={focusedFile()}
+                    selectedCluster={selectedCluster()}
+                    clusterFileMap={clusterFileMap()}
+                    aiPriority={aiPriority()}
+                    onSelectFile={setSelectedFile}
+                  />
                 </Show>
               </div>
-              <Show when={files.isLoading}>
-                <div class="p-3 space-y-1">
-                  {[...Array(8)].map(() => (
-                    <div class="h-9 bg-slate-800 rounded animate-pulse" />
-                  ))}
+            </div>
+
+            {/* Center: diff viewer */}
+            <div class="flex-1 overflow-y-auto bg-[var(--bg-base)]">
+              <Show when={selectedFileData()} fallback={
+                <div class="flex items-center justify-center h-full text-[var(--text-muted)]">
+                  <p class="text-sm">Select a file to review</p>
                 </div>
-              </Show>
-              <Show when={files.data}>
-                <FileList
-                  files={files.data!}
-                  rankedFiles={rankedFiles()}
-                  selectedFile={selectedFile()}
-                  focusedFile={focusedFile()}
-                  selectedCluster={selectedCluster()}
-                  clusterFileMap={clusterFileMap()}
-                  aiPriority={aiPriority()}
-                  onSelectFile={setSelectedFile}
+              }>
+                <DiffViewer
+                  file={selectedFileData()}
+                  rank={selectedFileRank()}
+                  prId={prNumber}
+                  owner={owner}
+                  repo={repo}
+                  commentOpen={commentOpen()}
+                  onCommentClose={() => setCommentOpen(false)}
                 />
               </Show>
             </div>
 
-            {/* Center: diff viewer */}
-            <div class="flex-1 min-w-0 min-h-0 overflow-hidden">
-              <DiffViewer
-                file={selectedFileData()}
-                rank={selectedFileRank()}
-                prId={prNumber}
-                owner={owner}
-                repo={repo}
-                commentOpen={commentOpen()}
-                onCommentClose={() => setCommentOpen(false)}
-              />
-            </div>
-
             {/* Right: tabbed panel (clusters / timeline) */}
-            <div class="w-56 border-l border-slate-800 flex flex-col min-h-0 shrink-0 hidden lg:flex">
-              <div class="flex border-b border-slate-800">
+            <div class="w-64 shrink-0 border-l border-[var(--border)] bg-[var(--bg-surface)] flex flex-col overflow-hidden hidden lg:flex">
+              <div class="flex border-b border-[var(--border)]">
                 <button
                   class={`flex-1 text-xs py-2 transition-colors ${
                     activeTab() === 'clusters'
-                      ? 'text-white border-b-2 border-blue-500'
-                      : 'text-slate-500 hover:text-slate-300'
+                      ? 'text-[var(--text-primary)] border-b-2 border-[var(--accent)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setActiveTab('clusters')}
                 >
@@ -261,15 +267,15 @@ export function PRReviewPage() {
                 <button
                   class={`flex-1 text-xs py-2 transition-colors ${
                     activeTab() === 'timeline'
-                      ? 'text-white border-b-2 border-blue-500'
-                      : 'text-slate-500 hover:text-slate-300'
+                      ? 'text-[var(--text-primary)] border-b-2 border-[var(--accent)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   onClick={() => setActiveTab('timeline')}
                 >
                   Timeline
                 </button>
               </div>
-              <div class="flex-1 overflow-y-auto">
+              <div class="flex-1 overflow-y-auto p-3">
                 <Show when={activeTab() === 'clusters'}>
                   <ClusterPanel
                     clusters={clusters()}
@@ -291,10 +297,10 @@ export function PRReviewPage() {
 
           {/* Mobile floating file button */}
           <button
-            class="fixed bottom-12 left-4 z-40 md:hidden bg-slate-800 border border-slate-600 text-slate-200 text-sm px-3 py-2 rounded-full shadow-lg"
+            class="fixed bottom-12 left-4 z-40 md:hidden bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-secondary)] text-sm px-3 py-2 rounded-full shadow-lg"
             onClick={() => setShowMobileFiles(true)}
           >
-            📂 Files
+            Files
           </button>
 
           {/* Mobile file bottom sheet */}
@@ -303,10 +309,10 @@ export function PRReviewPage() {
               class="fixed inset-0 z-50 md:hidden bg-black/50"
               onClick={() => setShowMobileFiles(false)}
             />
-            <div class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-700 max-h-[70vh] overflow-y-auto rounded-t-xl">
-              <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 sticky top-0 bg-slate-900">
-                <span class="text-sm font-medium text-white">Files ({files.data?.length ?? 0})</span>
-                <button class="text-slate-500 hover:text-white" onClick={() => setShowMobileFiles(false)}>✕</button>
+            <div class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[var(--bg-surface)] border-t border-[var(--border)] max-h-[70vh] overflow-y-auto rounded-t-xl">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-surface)]">
+                <span class="text-sm font-medium text-[var(--text-primary)]">Files ({files.data?.length ?? 0})</span>
+                <button class="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" onClick={() => setShowMobileFiles(false)}>✕</button>
               </div>
               <Show when={files.data}>
                 <FileList
@@ -324,30 +330,30 @@ export function PRReviewPage() {
           </Show>
 
           {/* Bottom keyboard hints */}
-          <div class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur border-t border-slate-800 px-4 py-1.5 gap-4 text-xs text-slate-600 hidden md:flex">
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">j</kbd>/<kbd class="bg-slate-800 px-1 rounded font-mono">k</kbd> navigate</span>
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">c</kbd> comment</span>
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">o</kbd> toggle AI</span>
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">⌘K</kbd> search</span>
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">?</kbd> shortcuts</span>
-            <span><kbd class="bg-slate-800 px-1 rounded font-mono">gd</kbd> dashboard</span>
+          <div class="fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg-surface)]/90 backdrop-blur border-t border-[var(--border)] px-4 py-1.5 gap-4 text-xs text-[var(--text-muted)] hidden md:flex">
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">j</kbd>/<kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">k</kbd> navigate</span>
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">c</kbd> comment</span>
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">o</kbd> toggle AI</span>
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">⌘K</kbd> search</span>
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">?</kbd> shortcuts</span>
+            <span><kbd class="bg-[var(--bg-elevated)] border border-[var(--border)] px-1 py-0.5 rounded mono text-[10px]">gd</kbd> dashboard</span>
           </div>
-        </div>
-      </ErrorBoundary>
+        </ErrorBoundary>
 
-      <CommandPalette
-        open={showPalette()}
-        onClose={() => setShowPalette(false)}
-        files={files.data ?? []}
-        rankedFiles={rankedFiles()}
-        clusters={clusters()}
-        onSelectFile={setSelectedFile}
-        onSelectCluster={setSelectedCluster}
-      />
-      <KeyboardShortcutsModal
-        open={showShortcuts()}
-        onClose={() => setShowShortcuts(false)}
-      />
+        <CommandPalette
+          open={showPalette()}
+          onClose={() => setShowPalette(false)}
+          files={files.data ?? []}
+          rankedFiles={rankedFiles()}
+          clusters={clusters()}
+          onSelectFile={setSelectedFile}
+          onSelectCluster={setSelectedCluster}
+        />
+        <KeyboardShortcutsModal
+          open={showShortcuts()}
+          onClose={() => setShowShortcuts(false)}
+        />
+      </div>
     </AuthGuard>
   )
 }

@@ -1,14 +1,13 @@
-interface Props { label: 'Critical' | 'Important' | 'Low' }
-
-export function ScoreBadge(props: Props) {
+type Score = 'Critical' | 'Important' | 'Low'
+export function ScoreBadge({ label }: { label: Score }) {
   const styles = {
-    Critical: 'bg-red-900/60 text-red-300 border-red-800',
-    Important: 'bg-yellow-900/60 text-yellow-300 border-yellow-800',
-    Low: 'bg-slate-700/60 text-slate-400 border-slate-600',
+    Critical: 'bg-[var(--critical-subtle)] text-[var(--critical)] border border-[var(--critical)]/30',
+    Important: 'bg-[var(--important-subtle)] text-[var(--important)] border border-[var(--important)]/30',
+    Low: 'bg-[var(--low)] text-[var(--low-text)] border border-[var(--border)]',
   }
   return (
-    <span class={`text-xs px-1.5 py-0.5 rounded border font-medium ${styles[props.label]}`}>
-      {props.label}
+    <span class={`mono text-[10px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider ${styles[label]}`}>
+      {label}
     </span>
   )
 }

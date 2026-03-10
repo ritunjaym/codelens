@@ -82,122 +82,121 @@ export function DiffViewer(props: Props) {
 
   return (
     <Show when={props.file} fallback={
-      <div class="flex items-center justify-center h-full text-slate-600">
-        <div class="text-center">
-          <p class="text-4xl mb-3">📂</p>
-          <p>Select a file to view its diff</p>
-        </div>
+      <div class="flex items-center justify-center h-full text-[var(--text-muted)]">
+        <p class="text-sm">Select a file to review</p>
       </div>
     }>
-      <div class="h-full overflow-auto">
+      <div class="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg overflow-hidden m-4">
         {/* File header */}
-        <div class="sticky top-0 z-10 bg-slate-900 border-b border-slate-700 px-4 py-2 flex items-center gap-2">
-          <span class="text-sm text-slate-200 font-mono">{props.file?.filename}</span>
+        <div class="px-4 py-2.5 border-b border-[var(--border)] bg-[var(--bg-elevated)] flex items-center gap-3">
+          <span class="mono text-xs text-[var(--text-primary)] font-medium truncate flex-1">{props.file?.filename}</span>
           <Show when={props.rank}>
             <ScoreBadge label={props.rank!.label} />
           </Show>
-          <span class="ml-auto text-xs text-slate-500">
-            <span class="text-green-600">+{props.file?.additions}</span>
+          <span class="text-xs shrink-0">
+            <span class="text-[var(--success)]">+{props.file?.additions}</span>
             {' '}
-            <span class="text-red-500">-{props.file?.deletions}</span>
+            <span class="text-[var(--critical)]">-{props.file?.deletions}</span>
           </span>
         </div>
 
-        {/* Diff table */}
+        {/* Diff lines */}
         <Show when={props.file?.patch} fallback={
-          <div class="p-4 text-slate-500 text-sm italic">
+          <div class="p-4 text-[var(--text-muted)] text-xs mono italic">
             {props.file?.status === 'binary' ? 'Binary file' : 'No diff available'}
           </div>
         }>
-          <table class="w-full text-xs font-mono border-collapse">
-            <tbody>
-              <For each={lines()}>
-                {(line, i) => (
-                  <>
-                    <tr
-                      class={`group cursor-pointer
-                        ${line.type === 'add' ? 'bg-green-950/30 hover:bg-green-950/50' :
-                          line.type === 'remove' ? 'bg-red-950/30 hover:bg-red-950/50' :
-                          line.type === 'hunk' ? 'bg-slate-800/50' :
-                          'hover:bg-slate-800/30'}
-                      `}
-                      onClick={() => line.type !== 'hunk' && setActiveCommentLine(
-                        activeCommentLine() === i() ? null : i()
-                      )}
-                    >
-                      <td class="w-10 px-2 py-0.5 text-slate-600 select-none text-right border-r border-slate-800">
-                        {line.oldLine ?? ''}
-                      </td>
-                      <td class="w-10 px-2 py-0.5 text-slate-600 select-none text-right border-r border-slate-800">
-                        {line.newLine ?? ''}
-                      </td>
-                      <td class={`px-3 py-0.5 whitespace-pre-wrap
-                        ${line.type === 'add' ? 'text-green-300' :
-                          line.type === 'remove' ? 'text-red-400' :
-                          line.type === 'hunk' ? 'text-blue-400' :
-                          'text-slate-300'}
-                      `}>
-                        {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
-                        {line.content}
-                      </td>
-                      <td class="w-6 px-1 opacity-0 group-hover:opacity-100">
-                        <span class="text-slate-500 text-xs">💬</span>
-                      </td>
-                    </tr>
+          <div class="mono text-xs leading-5">
+            <table class="w-full border-collapse">
+              <tbody>
+                <For each={lines()}>
+                  {(line, i) => (
+                    <>
+                      <tr
+                        class={`group cursor-pointer ${
+                          line.type === 'add' ? 'bg-[var(--add)]' :
+                          line.type === 'remove' ? 'bg-[var(--remove)]' :
+                          line.type === 'hunk' ? 'bg-[var(--accent-subtle)]' :
+                          'hover:bg-[var(--bg-elevated)]'
+                        }`}
+                        onClick={() => line.type !== 'hunk' && setActiveCommentLine(
+                          activeCommentLine() === i() ? null : i()
+                        )}
+                      >
+                        <td class="w-10 px-2 py-0.5 text-[var(--text-muted)] select-none text-right border-r border-[var(--border-subtle)]">
+                          {line.oldLine ?? ''}
+                        </td>
+                        <td class="w-10 px-2 py-0.5 text-[var(--text-muted)] select-none text-right border-r border-[var(--border-subtle)]">
+                          {line.newLine ?? ''}
+                        </td>
+                        <td class={`px-3 py-0.5 whitespace-pre ${
+                          line.type === 'add' ? 'text-[var(--success)]' :
+                          line.type === 'remove' ? 'text-[var(--critical)]' :
+                          line.type === 'hunk' ? 'text-[var(--accent)]' :
+                          'text-[var(--text-secondary)]'
+                        }`}>
+                          {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : line.type === 'hunk' ? '' : ' '}
+                          {line.content}
+                        </td>
+                        <td class="w-6 px-1 opacity-0 group-hover:opacity-100">
+                          <button class="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors text-xs">+</button>
+                        </td>
+                      </tr>
 
-                    {/* Inline comments */}
-                    <For each={comments().filter(c => c.line === i())}>
-                      {comment => (
+                      {/* Inline comments */}
+                      <For each={comments().filter(c => c.line === i())}>
+                        {comment => (
+                          <tr>
+                            <td colspan={4} class="px-4 py-2 bg-[var(--accent-subtle)] border-l-2 border-[var(--accent)]">
+                              <div class="flex items-start gap-2">
+                                <span class="text-[var(--accent)] text-xs font-medium">{comment.author}</span>
+                                <span class="text-[var(--text-secondary)] text-xs">{comment.body}</span>
+                                <Show when={failedLines().has(comment.line)}>
+                                  <span class="text-[var(--critical)] text-xs ml-auto">
+                                    Failed to post ·{' '}
+                                    <button
+                                      class="underline"
+                                      onClick={() => submitComment(comment.line)}
+                                    >Retry</button>
+                                  </span>
+                                </Show>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </For>
+
+                      {/* Comment input */}
+                      <Show when={activeCommentLine() === i()}>
                         <tr>
-                          <td colspan={4} class="px-4 py-2 bg-blue-950/30 border-l-2 border-blue-500">
-                            <div class="flex items-start gap-2">
-                              <span class="text-blue-400 text-xs font-medium">{comment.author}</span>
-                              <span class="text-slate-300 text-xs">{comment.body}</span>
-                              <Show when={failedLines().has(comment.line)}>
-                                <span class="text-red-400 text-xs ml-auto">
-                                  Failed to post ·{' '}
-                                  <button
-                                    class="underline"
-                                    onClick={() => submitComment(comment.line)}
-                                  >Retry</button>
-                                </span>
-                              </Show>
+                          <td colspan={4} class="px-4 py-3 bg-[var(--bg-elevated)]">
+                            <textarea
+                              class="w-full bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs p-2 rounded border border-[var(--border)] resize-none focus:outline-none focus:border-[var(--accent)] transition-colors mono"
+                              rows={3}
+                              placeholder="Add a review comment..."
+                              value={commentText()}
+                              onInput={e => setCommentText(e.currentTarget.value)}
+                              autofocus
+                            />
+                            <div class="flex gap-2 mt-2">
+                              <button
+                                class="text-xs bg-[var(--accent)] hover:bg-[var(--accent)]/80 text-white px-3 py-1 rounded transition-colors"
+                                onClick={() => submitComment(i())}
+                              >Comment</button>
+                              <button
+                                class="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-1 rounded transition-colors"
+                                onClick={() => setActiveCommentLine(null)}
+                              >Cancel</button>
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </For>
-
-                    {/* Comment input */}
-                    <Show when={activeCommentLine() === i()}>
-                      <tr>
-                        <td colspan={4} class="px-4 py-3 bg-slate-800/50">
-                          <textarea
-                            class="w-full bg-slate-900 text-slate-200 text-xs p-2 rounded border border-slate-600 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            rows={3}
-                            placeholder="Add a review comment..."
-                            value={commentText()}
-                            onInput={e => setCommentText(e.currentTarget.value)}
-                            autofocus
-                          />
-                          <div class="flex gap-2 mt-2">
-                            <button
-                              class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
-                              onClick={() => submitComment(i())}
-                            >Comment</button>
-                            <button
-                              class="text-xs text-slate-400 hover:text-white px-3 py-1 rounded transition-colors"
-                              onClick={() => setActiveCommentLine(null)}
-                            >Cancel</button>
-                          </div>
-                        </td>
-                      </tr>
-                    </Show>
-                  </>
-                )}
-              </For>
-            </tbody>
-          </table>
+                      </Show>
+                    </>
+                  )}
+                </For>
+              </tbody>
+            </table>
+          </div>
         </Show>
       </div>
     </Show>

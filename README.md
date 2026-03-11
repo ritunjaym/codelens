@@ -245,6 +245,19 @@ Key observations:
 - `@tanstack/solid-virtual` (file list virtualizer) is loaded on PR review only
 - TanStack Router handles code splitting per route automatically via Vite
 
+### Lighthouse Scores (Solid.js — Desktop)
+
+| Metric | Score |
+|--------|-------|
+| Performance | 97 |
+| Accessibility | 88 |
+| Best Practices | 92 |
+| SEO | 83 |
+
+![Lighthouse](docs/lighthouse.png)
+
+> SEO score reflects SPA architecture (no SSR) — expected for a developer tool.
+
 ### Runtime Performance
 
 - **File list**: windowed with `@tanstack/solid-virtual` (`createVirtualizer`) — renders only visible rows even for PRs with 1000+ files

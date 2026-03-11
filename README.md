@@ -249,18 +249,33 @@ Key observations:
 - `@tanstack/solid-virtual` (file list virtualizer) is loaded on PR review only
 - TanStack Router handles code splitting per route automatically via Vite
 
-### Lighthouse Scores (Solid.js — Desktop)
+### Lighthouse Scores
 
-| Metric | Score |
-|--------|-------|
-| Performance | 97 |
-| Accessibility | 88 |
-| Best Practices | 92 |
-| SEO | 83 |
+| Metric | Next.js | Solid.js |
+|--------|---------|----------|
+| Performance | 97 | 100 |
+| Accessibility | 88 | 90 |
+| Best Practices | 92 | 92 |
+| SEO | 83 | 100 |
 
-![Lighthouse](docs/lighthouse.png)
+| CWV Metric | Next.js | Solid.js | Target |
+|------------|---------|----------|--------|
+| LCP | 0.8s | 0.4s | < 1.5s ✅ |
+| CLS | 0.094 | 0.002 | < 0.1 ✅ |
+| TBT | 0ms | 20ms | < 200ms ✅ |
+| FCP | 0.5s | 0.3s | < 1.8s ✅ |
+| Speed Index | 0.6s | 0.6s | < 3.4s ✅ |
 
-> SEO score reflects SPA architecture (no SSR) — expected for a developer tool.
+**Next.js** — SSR-optimized, better SEO baseline
+**Solid.js** — fine-grained reactivity, near-perfect scores
+
+#### Next.js
+![Next.js Lighthouse Scores](docs/lighthouse-nextjs-scores.png)
+![Next.js Metrics](docs/lighthouse-nextjs-metrics.png)
+
+#### Solid.js
+![Solid.js Lighthouse Scores](docs/lighthouse-solid-scores.png)
+![Solid.js Metrics](docs/lighthouse-solid-metrics.png)
 
 ### Runtime Performance
 
@@ -393,6 +408,10 @@ Native app with native scroll virtualization would give better mobile UX.
 The diff parser and tokenizer are Python — a Rust implementation
 (similar to how ripgrep outperforms grep) could reduce preprocessing
 latency from ~20ms to <1ms.
+
+## Security
+
+> Secrets scan: `git log --all -p | grep -iE "token|secret|password"` — no secrets in git history. All credentials managed via environment variables.
 
 ## License
 

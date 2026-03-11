@@ -9,15 +9,14 @@ export function ErrorBoundary(props: Props) {
   return (
     <SolidErrorBoundary fallback={(err, reset) => (
       props.fallback?.(err, reset) ?? (
-        <div class="flex items-center justify-center h-full min-h-48">
-          <div class="text-center space-y-3">
-            <p class="text-slate-400 text-sm">Something went wrong</p>
-            <p class="text-slate-600 text-xs font-mono">{err.message}</p>
-            <button
-              class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors"
-              onClick={reset}
-            >Try again</button>
-          </div>
+        <div class="flex flex-col items-center justify-center p-8 gap-4">
+          <p class="text-[var(--critical)] text-sm">Something went wrong</p>
+          <button
+            onClick={() => window.location.reload()}
+            class="text-xs px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-primary)] rounded hover:border-[var(--accent)] transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       )
     )}>

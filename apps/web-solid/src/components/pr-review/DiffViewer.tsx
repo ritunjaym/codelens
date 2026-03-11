@@ -76,6 +76,15 @@ export function DiffViewer(props: Props) {
         })
         if (res.ok) {
           queryClient.invalidateQueries({ queryKey: ['timeline'] })
+          const partykitHost = import.meta.env.VITE_PARTYKIT_HOST
+          if (partykitHost) {
+            const room = `pr-${props.owner}-${props.repo}-${props.prId}`.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+            fetch(`https://${partykitHost}/parties/main/${room}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'new_comment', filename: props.file?.filename, body }),
+            }).catch(() => {})
+          }
           return
         }
       } catch {}

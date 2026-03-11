@@ -48,6 +48,7 @@ export function usePartyKit(prId: string) {
         const msg = JSON.parse(e.data) as { type: string; users?: Presence[]; event?: string; payload?: unknown }
         if (msg.type === 'presence_update') setPresence(msg.users ?? [])
         if (msg.type === 'github_event') setLastGithubEvent({ event: msg.event ?? '', payload: msg.payload })
+        if (msg.type === 'new_comment') setLastGithubEvent({ event: 'new_comment', payload: msg })
       } catch {}
     }
 

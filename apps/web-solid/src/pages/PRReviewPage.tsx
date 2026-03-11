@@ -10,7 +10,9 @@ import { Timeline } from '@/components/pr-review/Timeline'
 import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { PresenceBar } from '@/components/PresenceBar'
+import { useQueryClient } from '@tanstack/solid-query'
 import { usePR, usePRFiles } from '@/hooks/queries'
+import { usePartyKit } from '@/hooks/usePartyKit'
 import { mlApi, type RankedFile, type Cluster } from '@/lib/ml'
 
 export function PRReviewPage() {
@@ -44,6 +46,18 @@ export function PRReviewPage() {
   const [bannerDismissed, setBannerDismissed] = createSignal(false)
   const [activeTab, setActiveTab] = createSignal<'clusters' | 'timeline'>('clusters')
   const [showMobileFiles, setShowMobileFiles] = createSignal(false)
+
+  // Invalidate queries on incoming GitHub webhook events
+  const queryClient = useQueryClient()
+  const { lastGithubEvent } = usePartyKit(`${owner}/${repo}/${prNumber}`)
+  createEffect(() => {
+    const ev = lastGithubEvent()
+    if (!ev) return
+    const num = parseInt(prNumber)
+    queryClient.invalidateQueries({ queryKey: ['pr', owner, repo, num] })
+    queryClient.invalidateQueries({ queryKey: ['prFiles', owner, repo, num] })
+    queryClient.invalidateQueries({ queryKey: ['timeline', owner, repo, num] })
+  })
 
   // Run ML ranking when files load
   createEffect(async () => {

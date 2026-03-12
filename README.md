@@ -12,8 +12,12 @@
 ![Vercel](https://img.shields.io/badge/Vercel-deployed-000?logo=vercel)
 ![PartyKit](https://img.shields.io/badge/PartyKit-realtime-8B5CF6)
 
-**Live Demo (Solid.js)**: https://codelens-solid.vercel.app — login with any GitHub account. Opens real PRs from public repos.
-**Previous (Next.js)**: https://web-azure-sigma-44.vercel.app
+**Live Demo (Solid.js)**: https://codelens-solid.vercel.app
+
+**Live Demo (Next.js)**: https://codelens-nextjs.vercel.app
+
+Both deployments live — login with any GitHub account.
+Opens real PRs from public repos.
 
 [ML API Docs](https://ritunjaym-codelens-api.hf.space/docs)
 
@@ -24,12 +28,12 @@
 ```mermaid
 graph LR
   GitHub -->|OAuth + REST| Web[Solid.js App]
-  GitHub -->|Webhooks| Webhooks[/api/webhooks]
+  GitHub -->|Webhooks| Webhooks[api/webhooks]
   Web --> PartyKit[PartyKit WebSocket]
   Web --> MLAPI[FastAPI on HF Spaces]
   MLAPI --> FAISS[FAISS Index]
   MLAPI --> Reranker[distilRoBERTa Reranker]
-  Reranker -->|distilled from| Teacher[CodeBERT+LoRA]
+  Reranker -->|distilled from| Teacher[CodeBERT LoRA]
 ```
 
 ## Why Solid.js
@@ -45,9 +49,7 @@ For a diff viewer rendering 500+ lines, this means:
 - Keyboard navigation updates only the focused file indicator, not the file list
 - ML ranking arriving async updates only the score badges, not the entire PR page
 
-This is measurably faster than React for fine-grained DOM updates, which
-is why Assert Labs specifically requires it.
-
+This is measurably faster than React for fine-grained DOM updates, This makes Solid.js particularly well-suited for complex, data-dense developer tools.
 ## ML Engineering
 
 ### Two-Stage RAG Pipeline

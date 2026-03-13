@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd apps/web-solid && npm ci
+      - run: cd apps/web-solid && npm install --no-workspaces
       - run: cd apps/web-solid && npm run build
 
   solid-test:
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd apps/web-solid && npm ci
+      - run: cd apps/web-solid && npm install --no-workspaces
       - run: cd apps/web-solid && npm test
 
   solid-typecheck:
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd apps/web-solid && npm ci
+      - run: cd apps/web-solid && npm install --no-workspaces
       - run: cd apps/web-solid && npx tsc --noEmit
 
   ml-tests:

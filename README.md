@@ -16,6 +16,8 @@
 
 **Live Demo (Next.js)**: https://codelens-nextjs.vercel.app
 
+📐 **Architecture decisions with measured tradeoffs:** [View ADR Document](https://docs.google.com/document/d/1zUFFA9SqvoYwmq2If2k7xkfaE28DK7Gd/edit?usp=sharing&ouid=105898535457636892354&rtpof=true&sd=true)
+
 Both deployments live — login with any GitHub account.
 Opens real PRs from public repos.
 
@@ -36,7 +38,23 @@ graph LR
   Reranker -->|distilled from| Teacher[CodeBERT LoRA]
 ```
 
-## Why Solid.js
+## Frontend Architecture
+
+CodeLens ships two production frontends — both live, both fully functional:
+
+- **Next.js 16** ([codelens-nextjs.vercel.app](https://codelens-nextjs.vercel.app)) — SSR, App Router, SWR, file-based routing. The production-grade baseline most companies use.
+- **Solid.js** ([codelens-solid.vercel.app](https://codelens-solid.vercel.app)) — fine-grained reactivity, TanStack Router/Query/Virtual, 69KB gzip. Built to explore performance limits for dense UIs.
+
+| | Next.js 16 | Solid.js |
+|---|---|---|
+| Rendering | SSR + App Router | Reactive SPA |
+| Data fetching | SWR | TanStack Query |
+| Routing | File-based | TanStack Router |
+| Bundle (gzip) | ~180KB | 69KB |
+| Lighthouse Perf | 97 | 100 |
+| SEO | 83 | 100 |
+
+### Why Solid.js for the rewrite
 
 Unlike React's virtual DOM diffing, Solid.js uses fine-grained reactivity:
 - `createSignal` → reactive primitives (no re-renders of entire components)
@@ -255,14 +273,14 @@ Key observations:
 
 ### Lighthouse Scores
 
-| Metric | Next.js | Solid.js |
+| Metric | Solid.js | Next.js |
 |--------|---------|----------|
 | Performance | 97 | 100 |
 | Accessibility | 88 | 90 |
 | Best Practices | 92 | 92 |
 | SEO | 83 | 100 |
 
-| CWV Metric | Next.js | Solid.js | Target |
+| CWV Metric | Solid.js | Next.js | Target |
 |------------|---------|----------|--------|
 | LCP | 0.8s | 0.4s | < 1.5s ✅ |
 | CLS | 0.094 | 0.002 | < 0.1 ✅ |
@@ -272,16 +290,11 @@ Key observations:
 
 > ¹ FID is deprecated as of 2024. Project uses INP (Interaction to Next Paint) via web-vitals v4. TBT = 20ms serves as lab proxy.
 
-**Next.js** — SSR-optimized, better SEO baseline
-**Solid.js** — fine-grained reactivity, near-perfect scores
+**Next.js** — SSR delivers pre-painted HTML; FCP/LCP measured before any JS executes. Higher scores reflect the rendering model, not code quality. For a developer tool where SEO is irrelevant, the Solid.js SPA tradeoff is intentional.
 
-#### Next.js
-![Next.js Lighthouse Scores](docs/lighthouse-nextjs-scores.png)
-![Next.js Metrics](docs/lighthouse-nextjs-metrics.png)
+**Solid.js** — fine-grained reactivity, 69KB gzip, near-perfect scores despite SPA architecture.
 
-#### Solid.js
-![Solid.js Lighthouse Scores](docs/lighthouse-solid-scores.png)
-![Solid.js Metrics](docs/lighthouse-solid-metrics.png)
+**Why Next.js scores higher:** Server-side rendering delivers fully painted HTML on first load — no JS execution needed before FCP/LCP. Solid.js is a SPA; the browser must download, parse, and execute JS before rendering. For a developer tool where SEO is irrelevant, the Solid.js tradeoff is intentional.
 
 ### Runtime Performance
 

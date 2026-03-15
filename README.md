@@ -70,7 +70,7 @@ For a diff viewer rendering 500+ lines, this means:
 This is measurably faster than React for fine-grained DOM updates, This makes Solid.js particularly well-suited for complex, data-dense developer tools.
 ## ML Engineering
 
-### Two-Stage RAG Pipeline
+### Two-Stage ML Reranking Pipeline
 
 CodeLens uses a two-stage retrieval-augmented generation pipeline to rank PR files by review priority:
 

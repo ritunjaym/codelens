@@ -37,41 +37,43 @@ def export_reranker_to_onnx(
     out = Path(output_path or ONNX_DIR / "model.onnx")
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load order: local checkpoint → HF Hub → codebert-base
+    # Tokenizer: always load from codebert-base.
+    # prism-reranker's tokenizer.json has a format incompatibility, but its
+    # vocabulary is identical to codebert-base so codebert-base's tokenizer works.
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base", cache_dir="/tmp/hf-cache")
+    log.info("Tokenizer loaded from microsoft/codebert-base")
+
+    # Model weights: local checkpoint → ritunjaym/prism-reranker → codebert-base fallback
     if cp.exists() and any(cp.iterdir()):
         model_name = str(cp)
-        log.info(f"Loading local checkpoint from {cp}")
+        log.info(f"Loading model from local checkpoint: {cp}")
     else:
-        try:
-            model_name = "ritunjaym/prism-reranker"
-            log.info(f"No local checkpoint found. Trying HF Hub: {model_name}")
-            # Quick check: try loading tokenizer to detect format issues
-            AutoTokenizer.from_pretrained(model_name, cache_dir="/tmp/hf-cache")
-        except Exception as e:
-            log.warning(f"HF Hub load failed ({e}). Falling back to microsoft/codebert-base")
-            model_name = "microsoft/codebert-base"
+        model_name = "ritunjaym/prism-reranker"
+        log.info(f"No local checkpoint. Loading model from HF Hub: {model_name}")
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir="/tmp/hf-cache")
         model = AutoModelForSequenceClassification.from_pretrained(
-            model_name, num_labels=1, cache_dir="/tmp/hf-cache"
+            model_name, num_labels=1, cache_dir="/tmp/hf-cache",
+            ignore_mismatched_sizes=True,
         )
+        log.info(f"Model loaded from {model_name}")
     except Exception as e:
         log.warning(f"Failed to load {model_name} ({e}). Falling back to microsoft/codebert-base")
         model_name = "microsoft/codebert-base"
-        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir="/tmp/hf-cache")
         model = AutoModelForSequenceClassification.from_pretrained(
             model_name, num_labels=1, cache_dir="/tmp/hf-cache"
         )
 
     model.eval()
 
-    # Dummy input
+    # Dummy input — use only what the tokenizer actually returns
     dummy = tokenizer(
         "def example(): pass",
         padding="max_length", max_length=128, truncation=True,
         return_tensors="pt",
     )
+    input_names = list(dummy.keys())  # e.g. ["input_ids", "attention_mask"]
+    log.info(f"Tokenizer returns inputs: {input_names}")
 
     with torch.no_grad():
         torch.onnx.export(
@@ -79,21 +81,20 @@ def export_reranker_to_onnx(
             tuple(dummy.values()),
             str(out),
             opset_version=14,
-            input_names=["input_ids", "attention_mask", "token_type_ids"],
+            input_names=input_names,
             output_names=["logits"],
-            dynamic_axes={
-                "input_ids": {0: "batch", 1: "sequence"},
-                "attention_mask": {0: "batch", 1: "sequence"},
-                "token_type_ids": {0: "batch", 1: "sequence"},
-                "logits": {0: "batch"},
-            },
+            dynamic_axes={name: {0: "batch", 1: "sequence"} for name in input_names}
+            | {"logits": {0: "batch"}},
         )
     log.info(f"ONNX model exported to {out}")
 
     # Verify
     import onnxruntime as ort
     sess = ort.InferenceSession(str(out))
-    ort_out = sess.run(None, {k: v.numpy() for k, v in dummy.items()})
+    # Only pass inputs the ONNX model accepts
+    onnx_input_names = {i.name for i in sess.get_inputs()}
+    ort_feed = {k: v.numpy() for k, v in dummy.items() if k in onnx_input_names}
+    ort_out = sess.run(None, ort_feed)
     torch_out = model(**dummy).logits.detach().numpy()
     import numpy as np
     diff = abs(ort_out[0] - torch_out).max()
@@ -136,15 +137,17 @@ def quantize_onnx_model(
     compression = (1 - size_int8 / size_fp32) * 100
     log.info("quantized ONNX to INT8", fp32_mb=round(size_fp32, 1), int8_mb=round(size_int8, 1), compression_pct=round(compression, 0))
 
-    # Verify quantized model runs
+    # Verify quantized model runs — only pass inputs the model accepts
     import onnxruntime as ort
     import numpy as np
     sess = ort.InferenceSession(str(dst))
-    dummy = {
+    onnx_input_names = {i.name for i in sess.get_inputs()}
+    all_possible = {
         "input_ids": np.ones((1, 128), dtype=np.int64),
         "attention_mask": np.ones((1, 128), dtype=np.int64),
         "token_type_ids": np.zeros((1, 128), dtype=np.int64),
     }
+    dummy = {k: v for k, v in all_possible.items() if k in onnx_input_names}
     out = sess.run(None, dummy)
     log.info("INT8 inference verification ok", output_shape=str(out[0].shape))
 

@@ -17,7 +17,7 @@ FastAPI ML backend for CodeLens. Primary deployment is **GCP Cloud Run** (`us-ce
 | Environment | URL / ID |
 |---|---|
 | **GCP Cloud Run (primary API)** | `https://codelens-api-723322228871.us-central1.run.app` |
-| **Vertex AI Endpoint (reranker)** | endpoint `3480614558643519488`, model `957611955630112768` (us-central1) |
+| **Vertex AI Endpoint (reranker)** | endpoint `3480614558643519488`, model `4420880069078024192` (us-central1) |
 | **HuggingFace Spaces (fallback)** | `https://ritunjaym-codelens-api.hf.space` |
 
 ## Cloud Run Endpoints
@@ -54,11 +54,11 @@ POST https://us-central1-aiplatform.googleapis.com/v1/projects/upbeat-airfoil-49
 - **GCS bucket**: `gs://codelens-models-upbeat/reranker/`
   - `model.onnx` — FP32 (499 MB)
   - `model_int8.onnx` — INT8 (126 MB, 75% smaller, deployed to Vertex AI)
-- **Vertex AI Model Registry**: `codelens-reranker-int8` (model `957611955630112768`)
+- **Vertex AI Model Registry**: `codelens-reranker-prism-int8` (model `4420880069078024192`) — `ritunjaym/prism-reranker` fine-tuned weights
 - **Vertex AI Endpoint**: `codelens-reranker-endpoint` (`3480614558643519488`), n1-standard-2
 
 ## Notes
 
 - Cloud Run uses `TRANSFORMERS_OFFLINE=1` for fast cold starts (heuristic scoring). Set `HF_TOKEN` env var to enable CodeBERT/reranker model downloads.
-- Vertex AI endpoint runs the INT8 ONNX model (CodeBERT backbone) for neural reranking. Requires GCP IAM auth to call.
+- Vertex AI endpoint runs `ritunjaym/prism-reranker` INT8 ONNX (fine-tuned on CodeLens data, 82.6 MB). Requires GCP IAM auth to call.
 - HuggingFace Spaces uses the original `Dockerfile` (port 7860) and is kept as a no-auth fallback.

@@ -1,0 +1,6 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+onnxruntime>=1.18.0
+transformers>=4.40.0
+numpy>=1.26.0
+google-cloud-storage>=2.16.0

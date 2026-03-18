@@ -17,5 +17,9 @@ RUN python3 -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretr
 
 COPY main.py .
 
+# Bake the INT8 ONNX model into the image (copied from GCS during Cloud Build)
+# This avoids runtime GCS downloads and works regardless of SA permissions.
+COPY model_int8.onnx /tmp/model/model_int8.onnx
+
 EXPOSE 8080
 CMD uvicorn main:app --host 0.0.0.0 --port ${AIP_HTTP_PORT:-8080}

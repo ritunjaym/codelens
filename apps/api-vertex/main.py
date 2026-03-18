@@ -41,17 +41,29 @@ _tokenizer = None
 
 
 def _resolve_model_path() -> str:
-    """Find model_int8.onnx or model.onnx under the mounted/downloaded artifact dir."""
-    candidates = []
+    """Find model_int8.onnx or model.onnx.
+
+    Search order:
+    1. /tmp/model/ — baked into image by Cloud Build (preferred)
+    2. AIP_STORAGE_URI — GCS path set by Vertex AI (runtime download fallback)
+    """
+    # 1. Check baked-in path first (fast, no network)
+    local_dir = Path("/tmp/model")
+    for name in ("model_int8.onnx", "model.onnx"):
+        p = local_dir / name
+        if p.exists():
+            log.info(f"Using baked-in model at {p}")
+            return str(p)
+
+    # 2. Fallback: download from GCS at runtime
     if STORAGE_URI and STORAGE_URI.startswith("gs://"):
-        # Download from GCS to local /tmp/model
-        local_dir = Path("/tmp/model")
         local_dir.mkdir(parents=True, exist_ok=True)
         try:
             from google.cloud import storage as gcs
             client = gcs.Client()
             bucket_name, prefix = STORAGE_URI[5:].split("/", 1)
             bucket = client.bucket(bucket_name)
+            candidates = []
             for blob in bucket.list_blobs(prefix=prefix):
                 fname = blob.name.split("/")[-1]
                 if fname.endswith(".onnx"):
@@ -60,23 +72,15 @@ def _resolve_model_path() -> str:
                         log.info(f"Downloading {blob.name} → {dest}")
                         blob.download_to_filename(str(dest))
                     candidates.append(str(dest))
+            for path in candidates:
+                if "int8" in path:
+                    return path
+            if candidates:
+                return candidates[0]
         except Exception as e:
             log.warning(f"GCS download failed: {e}")
 
-    # Also check local /tmp/model in case Vertex AI pre-downloaded
-    local_dir = Path("/tmp/model")
-    for name in ("model_int8.onnx", "model.onnx"):
-        p = local_dir / name
-        if p.exists():
-            candidates.append(str(p))
-
-    # Prefer INT8 over FP32
-    for path in candidates:
-        if "int8" in path:
-            return path
-    if candidates:
-        return candidates[0]
-    raise FileNotFoundError("No ONNX model found. Set AIP_STORAGE_URI or place model in /tmp/model/")
+    raise FileNotFoundError("No ONNX model found in /tmp/model/ or GCS")
 
 
 @app.on_event("startup")

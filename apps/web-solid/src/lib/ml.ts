@@ -1,4 +1,4 @@
-const ML_BASE = import.meta.env.VITE_ML_API_URL || 'https://codelens-api-723322228871.us-central1.run.app'
+const ML_BASE = import.meta.env.VITE_ML_API_URL || 'https://ritunjaym-codelens-api.hf.space'
 
 export interface RankedFile {
   filename: string

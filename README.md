@@ -9,6 +9,8 @@
 ![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E)](https://huggingface.co/spaces/ritunjaym/codelens-api)
+![GCP](https://img.shields.io/badge/GCP-Cloud_Run-4285F4?logo=googlecloud)
+![Vertex AI](https://img.shields.io/badge/Vertex_AI-deployed-4285F4?logo=googlecloud)
 ![Vercel](https://img.shields.io/badge/Vercel-deployed-000?logo=vercel)
 ![PartyKit](https://img.shields.io/badge/PartyKit-realtime-8B5CF6)
 
@@ -21,7 +23,7 @@
 Both deployments live — login with any GitHub account.
 Opens real PRs from public repos.
 
-[ML API Docs](https://ritunjaym-codelens-api.hf.space/docs)
+[ML API Docs](https://codelens-api-723322228871.us-central1.run.app/docs) · [HF Spaces (fallback)](https://ritunjaym-codelens-api.hf.space/docs)
 
 ![AI Priority Rankings](docs/screenshots/ai-priority-toggle.png)
 
@@ -32,7 +34,10 @@ graph LR
   GitHub -->|OAuth + REST| Web[Solid.js App]
   GitHub -->|Webhooks| Webhooks[api/webhooks]
   Web --> PartyKit[PartyKit WebSocket]
-  Web --> MLAPI[FastAPI on HF Spaces]
+  Web --> MLAPI[FastAPI on GCP Cloud Run]
+  MLAPI --> VertexAI[Vertex AI — prism-reranker INT8]
+  MLAPI --> FAISS[FAISS Index]
+  MLAPI --> Reranker[distilRoBERTa Reranker]
   MLAPI --> FAISS[FAISS Index]
   MLAPI --> Reranker[distilRoBERTa Reranker]
   Reranker -->|distilled from| Teacher[CodeBERT LoRA]
@@ -108,7 +113,7 @@ CodeLens uses a two-stage retrieval-augmented generation pipeline to rank PR fil
 | DistilledModel | **0.8485** [0.7934, 0.8997] | **0.8684** [0.8194, 0.9131] | **0.8786** [0.8228, 0.9314] | **0.8545** [0.8043, 0.9020] | **0.8229** [0.7396, 0.8958] | **0.4104** [0.3604, 0.4625] |
 | *Notes* | *FileSize ≡ FullPipeline on aggregate; see Honest Baseline Analysis below* | | | | | |
 
-> ⚠️ The deployed API uses `microsoft/codebert-base` as a zero-shot reranker. A fine-tuned LoRA checkpoint (AUC 1.0 on synthetic eval set) exists locally at `ml/models/reranker/` but is not deployed due to HuggingFace Spaces memory constraints. Production deployment would use the distilled ONNX model.
+> ✅ The deployed Vertex AI endpoint runs `ritunjaym/prism-reranker` exported to ONNX INT8 (82.6MB), serving trained scores via GCP Cloud Run. HuggingFace Spaces kept as fallback.
 
 Key takeaways:
 - FullPipeline and DistilledModel match on all metrics — distillation preserves quality at 3× lower latency
@@ -304,6 +309,18 @@ Key observations:
 - **Mobile**: file tree rendered as a `fixed` bottom sheet — hidden off-screen on mobile, no layout shift
 - **Fine-grained reactivity**: inline comment addition re-renders only the comment row, not the full diff table
 
+## Deployment
+
+| Service | Platform | URL |
+|---------|----------|-----|
+| ML API (primary) | GCP Cloud Run | https://codelens-api-723322228871.us-central1.run.app |
+| ML Model (neural) | Vertex AI Online Prediction | prism-reranker INT8, us-central1 |
+| ML API (fallback) | HuggingFace Spaces | https://ritunjaym-codelens-api.hf.space |
+| Frontend (Solid.js) | Vercel | https://codelens-solid.vercel.app |
+| Frontend (Next.js) | Vercel | https://codelens-nextjs.vercel.app |
+
+ML backend containerized via Docker, built with Cloud Build, stored in Artifact Registry, deployed to Cloud Run (scale-to-zero). Neural scoring via Vertex AI Online Prediction endpoint.
+
 ## Setup
 
 > **Quick demo**: The ML API falls back to heuristic ranking if the model is unavailable — the frontend works end-to-end without a GPU.
@@ -344,7 +361,7 @@ make train             # fine-tune reranker (GPU recommended)
 ```
 codelens/
 ├── apps/
-│   ├── api-hf/                     # FastAPI ML backend deployed to HF Spaces
+├── api-hf/                     # FastAPI ML backend — GCP Cloud Run (primary), HF Spaces (fallback)
 │   │   ├── main.py                 #   /rank, /cluster, /retrieve, /health endpoints
 │   │   └── requirements.txt
 │   ├── api/                        # Local FastAPI (routers, services, models)
